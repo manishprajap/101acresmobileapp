@@ -1,0 +1,86 @@
+/* ── Add these to your existing Area.css ── */
+
+.area-back-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: none;
+  border: 1.5px solid #1a3c5e;
+  color: #1a3c5e;
+  border-radius: 8px;
+  padding: 8px 18px;
+  font-size: 0.9rem;
+  font-weight: 500;
+  cursor: pointer;
+  margin-bottom: 20px;
+  transition: background 0.15s;
+}
+
+.area-back-btn:hover {
+  background: #f0f4ff;
+}
+
+.area-empty {
+  text-align: center;
+  color: #6b7280;
+  font-size: 1rem;
+  margin: 40px 0;
+}
+
+
+/* ── Area Grid — 2 columns fixed ── */
+.area-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 16px;
+  padding: 16px;
+}
+
+/* Mobile pe bhi 2 col rakho */
+@media (max-width: 480px) {
+  .area-grid {
+    grid-template-columns: repeat(2, 1fr);
+    gap: 12px;
+    padding: 12px;
+  }
+}
+
+/* Desktop pe 2 col hi rakho (ya 3 chahiye toh change karo) */
+@media (min-width: 768px) {
+  .area-grid {
+    grid-template-columns: repeat(2, 1fr);
+    gap: 20px;
+    padding: 24px;
+    max-width: 700px;
+    margin: 0 auto;
+  }
+}
+
+/* ── Area Card ── */
+.area-card {
+  background: #ffffff;
+  border: 1px solid #e5e7eb;
+  border-radius: 12px;
+  padding: 20px 16px;
+  cursor: pointer;
+  transition: box-shadow 0.2s, transform 0.15s;
+}
+
+.area-card:hover {
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.1);
+  transform: translateY(-2px);
+}
+
+.area-card-city {
+  font-size: 1rem;
+  font-weight: 600;
+  color: #1a3c5e;
+  margin: 0 0 6px;
+}
+
+.area-card-count {
+  font-size: 0.82rem;
+  color: #e07b39;
+  font-weight: 500;
+  margin: 0;
+}

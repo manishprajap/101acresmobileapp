@@ -1,0 +1,506 @@
+/* ── Page shell ── */
+.dash-page {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+}
+.dash-content {
+  --background: #f2f4f8;
+  flex: 1;
+}
+
+/* ══════════════════════════════════════
+   Bottom Tab Bar
+══════════════════════════════════════ */
+.bottom-tab-bar {
+  display: flex;
+  background: #fff;
+  border-top: 0.5px solid rgba(0,0,0,0.1);
+  padding: 6px 0 env(safe-area-inset-bottom, 6px);
+  flex-shrink: 0;
+  z-index: 100;
+}
+.tab-btn {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 3px;
+  background: none;
+  border: none;
+  padding: 4px 0;
+  cursor: pointer;
+  color: #aaa;
+}
+.tab-btn ion-icon { font-size: 22px; }
+.tab-btn span     { font-size: 10px; font-weight: 500; }
+.tab-btn--active  { color: #185FA5; }
+.tab-btn--add ion-icon { font-size: 26px; }
+
+/* ══════════════════════════════════════
+   Home View
+══════════════════════════════════════ */
+.home-view { min-height: 100%; padding-bottom: 16px; }
+
+/* ── KPI header ── */
+.kpi-header {
+  background: #185FA5;
+  padding: 15px 16px 20px;
+}
+.kpi-header-top {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  margin-bottom: 18px;
+}
+.kpi-greeting {
+  font-size: 13px;
+  color: rgba(255,255,255,0.7);
+  margin: 0 0 2px;
+}
+.kpi-name {
+  font-size: 20px;
+  font-weight: 600;
+  color: #fff;
+  margin: 0;
+}
+.notif-btn {
+  width: 38px; height: 38px;
+  border-radius: 50%;
+  background: rgba(255,255,255,0.15);
+  border: none;
+  display: flex; align-items: center; justify-content: center;
+  cursor: pointer;
+}
+.notif-btn ion-icon { font-size: 20px; color: #fff; }
+
+.kpi-loading {
+  display: flex;
+  justify-content: center;
+  padding: 20px 0;
+}
+.kpi-loading ion-spinner { --color: rgba(255,255,255,0.8); }
+
+.kpi-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+}
+.kpi-card {
+  background: rgba(255,255,255,0.15);
+  border-radius: 12px;
+  padding: 12px 14px;
+}
+.kpi-label {
+  font-size: 11px;
+  color: rgba(255,255,255,0.65);
+  margin: 0 0 4px;
+}
+.kpi-val {
+  font-size: 22px;
+  font-weight: 700;
+  color: #fff;
+  margin: 0 0 3px;
+  letter-spacing: -0.5px;
+}
+.kpi-delta       { font-size: 11px; color: rgba(255,255,255,0.6); margin: 0; }
+.kpi-delta--up   { color: #9FE1CB; }
+.kpi-delta--warn { color: #FAC775; }
+
+/* ── Home body ── */
+.home-body {
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+.home-section { display: flex; flex-direction: column; gap: 10px; }
+
+.section-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+.section-title {
+  font-size: 15px;
+  font-weight: 600;
+  color: #1a1a2e;
+  margin: 0;
+}
+.section-link {
+  font-size: 13px;
+  color: #185FA5;
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 0;
+  font-weight: 500;
+}
+
+/* ── Quick actions ── */
+.quick-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 10px;
+}
+.quick-btn {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  background: #fff;
+  border: 0.5px solid rgba(0,0,0,0.08);
+  border-radius: 12px;
+  padding: 12px 6px;
+  cursor: pointer;
+}
+.quick-icon {
+  width: 36px; height: 36px;
+  border-radius: 10px;
+  background: #E6F1FB;
+  display: flex; align-items: center; justify-content: center;
+}
+.quick-icon ion-icon { font-size: 19px; color: #185FA5; }
+.quick-label {
+  font-size: 10px;
+  color: #555;
+  text-align: center;
+  line-height: 1.3;
+  font-weight: 500;
+}
+
+/* ── Listing list ── */
+.listing-list {
+  background: #fff;
+  border-radius: 14px;
+  overflow: hidden;
+  border: 0.5px solid rgba(0,0,0,0.07);
+}
+.listing-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 14px;
+  border-bottom: 0.5px solid rgba(0,0,0,0.06);
+}
+.listing-row:last-child { border-bottom: none; }
+
+.listing-thumb {
+  width: 40px; height: 40px;
+  border-radius: 10px;
+  background: #E6F1FB;
+  display: flex; align-items: center; justify-content: center;
+  flex-shrink: 0;
+  overflow: hidden;
+}
+.listing-thumb-img { width: 100%; height: 100%; object-fit: cover; }
+.listing-thumb-icon { font-size: 20px; color: #185FA5; }
+
+.listing-info { flex: 1; min-width: 0; }
+.listing-title {
+  font-size: 13px;
+  font-weight: 600;
+  color: #1a1a2e;
+  margin: 0 0 2px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.listing-sub { font-size: 11px; color: #888; margin: 0; }
+
+.listing-right {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 4px;
+  flex-shrink: 0;
+}
+.listing-price {
+  font-size: 13px;
+  font-weight: 700;
+  color: #185FA5;
+  margin: 0;
+}
+.listing-status {
+  font-size: 10px;
+  font-weight: 600;
+  padding: 2px 8px;
+  border-radius: 20px;
+}
+.status-active  { background: #E1F5EE; color: #0F6E56; }
+.status-pending { background: #FAEEDA; color: #854F0B; }
+.status-let     { background: #EEEDFE; color: #3C3489; }
+.status-sold    { background: #FCEBEB; color: #A32D2D; }
+
+/* ── Activity ── */
+.activity-list {
+  background: #fff;
+  border-radius: 14px;
+  overflow: hidden;
+  border: 0.5px solid rgba(0,0,0,0.07);
+  padding: 4px 14px;
+}
+.activity-item {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 10px 0;
+  border-bottom: 0.5px solid rgba(0,0,0,0.05);
+}
+.activity-item:last-child { border-bottom: none; }
+
+.activity-dot {
+  width: 8px; height: 8px;
+  border-radius: 50%;
+  flex-shrink: 0;
+  margin-top: 4px;
+}
+.activity-dot--blue  { background: #185FA5; }
+.activity-dot--green { background: #1D9E75; }
+.activity-dot--amber { background: #BA7517; }
+.activity-dot--red   { background: #E24B4A; }
+
+.activity-text { font-size: 13px; color: #333; margin: 0 0 2px; line-height: 1.4; }
+.activity-time { font-size: 11px; color: #aaa; margin: 0; }
+
+/* ══════════════════════════════════════
+   Properties View
+══════════════════════════════════════ */
+.properties-view { padding-bottom: 20px; }
+.props-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 52px 16px 12px;
+  background: #185FA5;
+}
+.props-header-title { font-size: 20px; font-weight: 700; color: #fff; margin: 0; }
+.props-add-btn {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  background: rgba(255,255,255,0.2);
+  color: #fff;
+  border: none;
+  border-radius: 20px;
+  padding: 7px 14px;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+}
+.props-add-btn ion-icon { font-size: 16px; }
+.props-card-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 14px;
+}
+
+/* ── Property card ── */
+.prop-card {
+  background: #fff;
+  border-radius: 14px;
+  overflow: hidden;
+  box-shadow: 0 1px 8px rgba(0,0,0,0.07);
+}
+.prop-card-img-wrap {
+  position: relative;
+  height: 170px;
+  background: #e8eef6;
+}
+.prop-card-img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.prop-card-img--empty {
+  display: flex; align-items: center; justify-content: center;
+  height: 100%; background: #E6F1FB;
+}
+.prop-card-img--empty ion-icon { font-size: 44px; color: #B5D4F4; }
+
+.prop-badge {
+  position: absolute; top: 10px; left: 10px;
+  font-size: 11px; font-weight: 600;
+  padding: 3px 10px; border-radius: 20px;
+}
+.prop-badge--sale { background: #185FA5; color: #fff; }
+.prop-badge--rent { background: #1D9E75; color: #fff; }
+
+.prop-type-tag {
+  position: absolute; top: 10px; right: 10px;
+  font-size: 11px; color: #fff;
+  background: rgba(0,0,0,0.45);
+  padding: 3px 9px; border-radius: 20px;
+}
+.prop-card-body { padding: 12px 14px 14px; }
+.prop-card-title { font-size: 15px; font-weight: 700; color: #1a1a2e; margin: 0 0 4px; }
+.prop-card-loc {
+  display: flex; align-items: center; gap: 4px;
+  font-size: 12px; color: #888; margin: 0 0 10px;
+}
+.prop-card-loc ion-icon { font-size: 13px; color: #185FA5; flex-shrink: 0; }
+.prop-card-footer {
+  display: flex; align-items: center; justify-content: space-between;
+  margin-bottom: 6px;
+}
+.prop-card-price { font-size: 18px; font-weight: 700; color: #185FA5; letter-spacing: -0.3px; }
+.prop-card-pricefor { font-size: 12px; color: #aaa; font-weight: 400; }
+.prop-card-sqft { font-size: 12px; color: #888; }
+.prop-card-beds {
+  display: flex; align-items: center; gap: 5px;
+  font-size: 12px; color: #666;
+}
+.prop-card-beds ion-icon { font-size: 14px; color: #888; }
+
+/* ══════════════════════════════════════
+   Shared states
+══════════════════════════════════════ */
+.list-loading {
+  display: flex; justify-content: center; padding: 32px;
+}
+.list-loading ion-spinner { --color: #185FA5; }
+
+.list-error {
+  padding: 24px 16px;
+  text-align: center;
+  font-size: 14px;
+  color: #A32D2D;
+}
+
+.list-empty {
+  display: flex; flex-direction: column; align-items: center;
+  gap: 10px; padding: 48px 16px; text-align: center;
+}
+.list-empty ion-icon { font-size: 48px; color: #cdd5e0; }
+.list-empty p { font-size: 14px; margin: 0; color: #888; }
+
+.empty-add-btn {
+  background: #185FA5; color: #fff;
+  border: none; border-radius: 20px;
+  padding: 10px 24px; font-size: 14px; font-weight: 600;
+  cursor: pointer; margin-top: 8px;
+}
+
+/* ── Placeholder screens ── */
+.placeholder-view {
+  display: flex; flex-direction: column;
+  align-items: center; justify-content: center;
+  gap: 12px; height: 100%; padding: 80px 16px; text-align: center;
+}
+.placeholder-icon { font-size: 56px; color: #cdd5e0; }
+.placeholder-view h2 { font-size: 18px; font-weight: 600; color: #333; margin: 0; }
+.placeholder-view p  { font-size: 14px; margin: 0; color: #aaa; }
+
+/* ── Paste these into your existing Dashboard.css ── */
+
+/* Top header layout */
+.dash-top-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 16px;
+  background: #fff;
+  border-bottom: 1px solid #f0f0f0;
+  position: sticky;
+  top: 0;
+  z-index: 100;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.06);
+}
+
+.dash-top-left {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+/* Right side: notifications + website button */
+.dash-top-right {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+/* Logo dot (home view) */
+.dash-logo-dot {
+  width: 34px;
+  height: 34px;
+  border-radius: 10px;
+  background: #1a56db;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #fff;
+  font-size: 17px;
+  flex-shrink: 0;
+}
+
+/* Back button (non-home views) */
+.dash-back-btn {
+  width: 34px;
+  height: 34px;
+  border-radius: 10px;
+  background: #f4f6fb;
+  border: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #1a56db;
+  font-size: 18px;
+  cursor: pointer;
+  flex-shrink: 0;
+  transition: background 0.15s;
+}
+
+.dash-back-btn:active {
+  background: #e2e8f7;
+}
+
+/* Tab title */
+.dash-tab-label {
+  font-size: 17px;
+  font-weight: 600;
+  color: #111827;
+  letter-spacing: -0.2px;
+}
+
+/* Notification bell */
+.notif-btn {
+  width: 34px;
+  height: 34px;
+  border-radius: 10px;
+  background: #f4f6fb;
+  border: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #374151;
+  font-size: 18px;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+
+.notif-btn:active {
+  background: #e2e8f7;
+}
+
+/* Go to website button */
+.dash-website-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 6px 12px;
+  background: #1a56db;
+  color: #fff;
+  border-radius: 20px;
+  font-size: 13px;
+  font-weight: 500;
+  text-decoration: none;
+  white-space: nowrap;
+  transition: background 0.15s, opacity 0.15s;
+  line-height: 1;
+}
+
+.dash-website-btn ion-icon {
+  font-size: 13px;
+}
+
+.dash-website-btn:active {
+  opacity: 0.85;
+}

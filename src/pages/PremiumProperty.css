@@ -1,0 +1,333 @@
+/* =============================================
+   PremiumProperty.css
+   ============================================= */
+
+/* ── Hero ── */
+
+.pp-hero {
+  position: relative;
+  height: 50px;          /* chota image */
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: url('https://images.unsplash.com/photo-1486406146926-c627a92ad1ab?w=1200&q=80')
+    center/cover no-repeat;
+  margin-top: 0px;
+}
+
+.pp-hero-overlay {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(180deg, rgba(10, 20, 30, 0.15), rgba(10, 20, 30, 0.45));
+}
+
+.pp-hero-content {
+  position: relative;
+  z-index: 2;
+  width: 100%;
+  max-width: 700px;
+  padding: 0 5%;
+}
+
+/* ── Pill Search Bar — image ke bottom edge par overlap ── */
+.pp-search-wrap {
+  position: relative;
+  margin-top: -28px;     /* image ke upar overlap karne ke liye */
+  z-index: 3;
+  padding: 0 5%;
+  max-width: 700px;
+  margin-left: auto;
+  margin-right: auto;
+}
+
+.pp-search-pill {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  background: #fff;
+  border-radius: 50px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.18);
+  padding: 5px 6px 5px 16px;
+  gap: 8px;
+}
+
+.pp-pill-icon {
+  font-size: 17px;
+  color: #8a96a3;
+  flex-shrink: 0;
+}
+
+.pp-pill-input {
+  flex: 1;
+  border: none;
+  outline: none;
+  font-size: 13px;
+  color: #1c2b39;
+  background: transparent;
+  padding: 10px 0;
+  min-width: 0;
+}
+
+.pp-pill-input::placeholder {
+  color: #b0bac3;
+}
+
+.pp-pill-mic {
+  font-size: 17px;
+  color: #1fae5c;
+  flex-shrink: 0;
+}
+
+.pp-pill-btn {
+  background: #1fae5c;
+  color: #fff;
+  border: none;
+  border-radius: 50px;
+  padding: 10px 22px;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: background 0.18s;
+  flex-shrink: 0;
+}
+
+.pp-pill-btn:hover {
+  background: #189249;
+}
+
+/* ── Tabs (search bar ke neeche) ── */
+.pp-tabs {
+  display: flex;
+  justify-content: center;
+  gap: 10px;
+  margin-top: 14px;
+  padding: 0 5%;
+}
+
+.pp-tab {
+  padding: 8px 26px;
+  border: none;
+  border-radius: 24px;
+  background: #f0f3f5;
+  font-size: 13px;
+  font-weight: 600;
+  color: #1c2b39;
+  cursor: pointer;
+  transition: background 0.18s, color 0.18s;
+}
+
+.pp-tab.active {
+  background: #1fae5c;
+  color: #fff;
+}
+
+/* ── Pill Search Bar ── */
+.pp-search-pill {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  background: #fff;
+  border-radius: 50px;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
+  padding: 6px 8px 6px 18px;
+  gap: 8px;
+}
+
+.pp-pill-icon {
+  font-size: 18px;
+  color: #8a96a3;
+  flex-shrink: 0;
+}
+
+.pp-pill-input {
+  flex: 1;
+  border: none;
+  outline: none;
+  font-size: 14px;
+  color: #1c2b39;
+  background: transparent;
+  padding: 12px 0;
+  min-width: 0;
+}
+
+.pp-pill-input::placeholder {
+  color: #b0bac3;
+}
+
+.pp-pill-mic {
+  font-size: 18px;
+  color: #1fae5c;
+  flex-shrink: 0;
+}
+
+.pp-pill-btn {
+  background: #1fae5c;
+  color: #fff;
+  border: none;
+  border-radius: 50px;
+  padding: 12px 26px;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: background 0.18s;
+  flex-shrink: 0;
+}
+
+.pp-pill-btn:hover {
+  background: #189249;
+}
+
+/* ── Tabs (below search bar) ── */
+.pp-tabs {
+  display: flex;
+  justify-content: center;
+  gap: 10px;
+  margin-top: 16px;
+}
+
+.pp-tab {
+  padding: 9px 28px;
+  border: none;
+  border-radius: 24px;
+  background: rgba(255, 255, 255, 0.9);
+  font-size: 14px;
+  font-weight: 600;
+  color: #1c2b39;
+  cursor: pointer;
+  transition: background 0.18s, color 0.18s;
+}
+
+.pp-tab.active {
+  background: #1fae5c;
+  color: #fff;
+}
+
+/* ── Results ── */
+.pp-results {
+  padding: 48px 6%;
+  max-width: 1100px;
+  margin: 0 auto;
+  min-height: 120px;
+}
+
+.pp-no-results {
+  text-align: center;
+  color: #e53e3e;
+  font-size: 15px;
+  font-weight: 500;
+  margin-top: 16px;
+}
+
+.pp-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 24px;
+}
+
+/* Property Card */
+.pp-card {
+  border-radius: 12px;
+  overflow: hidden;
+  box-shadow: 0 4px 18px rgba(0, 0, 0, 0.08);
+  background: #fff;
+  transition: transform 0.2s, box-shadow 0.2s;
+  cursor: pointer;
+}
+
+.pp-card:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 10px 28px rgba(0, 0, 0, 0.13);
+}
+
+.pp-card-img-wrap {
+  position: relative;
+}
+
+.pp-card-img {
+  width: 100%;
+  height: 120px;
+  object-fit: cover;
+  display: block;
+}
+
+.pp-badge {
+  position: absolute;
+  top: 12px;
+  left: 12px;
+  background: #1fae5c;
+  color: #fff;
+  font-size: 11px;
+  font-weight: 700;
+  padding: 4px 10px;
+  border-radius: 20px;
+  letter-spacing: 0.5px;
+}
+
+.pp-card-body {
+  padding: 16px;
+}
+
+.pp-card-title {
+  font-size: 15px;
+  font-weight: 700;
+  color: #1c2b39;
+  margin: 0 0 6px;
+}
+
+.pp-card-area {
+  font-size: 13px;
+  color: #8a96a3;
+  margin: 0 0 8px;
+}
+
+.pp-card-price {
+  font-size: 16px;
+  font-weight: 700;
+  color: #1fae5c;
+  margin: 0 0 12px;
+}
+
+.pp-card-meta {
+  display: flex;
+  gap: 14px;
+  flex-wrap: wrap;
+}
+
+.pp-card-meta span {
+  font-size: 12px;
+  color: #5b6b79;
+}
+
+/* ── Responsive ── */
+@media (max-width: 900px) {
+  .pp-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+@media (max-width: 560px) {
+  .pp-hero {
+    min-height: 150px;
+    padding: 0 5% 22px;
+  }
+
+  .pp-pill-btn {
+    padding: 10px 16px;
+    font-size: 13px;
+  }
+
+  .pp-pill-mic {
+    display: none;
+  }
+
+  .pp-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .pp-tab {
+    padding: 8px 18px;
+    font-size: 13px;
+  }
+}

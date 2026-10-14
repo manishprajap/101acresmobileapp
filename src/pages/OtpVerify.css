@@ -1,0 +1,141 @@
+.otp-root {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 32px 24px 40px;
+  min-height: 100vh;
+  background: var(--ion-background-color, #fff);
+  position: relative;
+}
+
+.otp-back-btn {
+  align-self: flex-start;
+  background: none;
+  border: none;
+  color: #FF6B35;
+  font-size: 14px;
+  cursor: pointer;
+  padding: 0;
+  margin-bottom: 32px;
+}
+
+.otp-icon {
+  font-size: 48px;
+  margin-bottom: 16px;
+}
+
+.otp-heading {
+  font-size: 22px;
+  font-weight: 600;
+  color: #1a1a1a;
+  margin: 0 0 8px;
+}
+
+.otp-subtext {
+  font-size: 14px;
+  color: #666;
+  margin: 0 0 32px;
+  text-align: center;
+}
+
+.otp-subtext strong {
+  color: #1a1a1a;
+}
+
+/* OTP boxes */
+.otp-boxes {
+  display: flex;
+  gap: 10px;
+  margin-bottom: 12px;
+}
+
+.otp-input {
+  width: 44px;
+  height: 52px;
+  border: 1.5px solid #e0e0e0;
+  border-radius: 10px;
+  text-align: center;
+  font-size: 22px;
+  font-weight: 600;
+  color: #1a1a1a;
+  background: #fafafa;
+  outline: none;
+  transition: border-color 0.15s, background 0.15s;
+  -moz-appearance: textfield;
+}
+.otp-input::-webkit-outer-spin-button,
+.otp-input::-webkit-inner-spin-button { -webkit-appearance: none; }
+
+.otp-input:focus {
+  border-color: #FF6B35;
+  background: #fff;
+}
+
+.otp-input--filled {
+  border-color: #FF6B35;
+  background: #fff9f7;
+}
+
+.otp-input--error {
+  border-color: #e53935;
+  background: #fff5f5;
+}
+
+.otp-error {
+  font-size: 13px;
+  color: #e53935;
+  margin: 0 0 16px;
+  text-align: center;
+}
+
+/* Verify button */
+.otp-verify-btn {
+  width: 100%;
+  max-width: 320px;
+  padding: 14px;
+  background: #FF6B35;
+  color: #fff;
+  border: none;
+  border-radius: 12px;
+  font-size: 16px;
+  font-weight: 600;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  margin-top: 8px;
+  transition: opacity 0.15s;
+}
+
+.otp-verify-btn:disabled { opacity: 0.65; cursor: not-allowed; }
+
+/* Resend */
+.otp-resend {
+  margin-top: 20px;
+  font-size: 14px;
+  color: #888;
+}
+
+.otp-timer { color: #FF6B35; font-weight: 600; }
+
+.otp-resend-btn {
+  background: none;
+  border: none;
+  color: #FF6B35;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  text-decoration: underline;
+}
+
+/* Spinner (reuse from Login.css) */
+.btn-spinner {
+  width: 16px;
+  height: 16px;
+  border: 2px solid rgba(255,255,255,0.4);
+  border-top-color: #fff;
+  border-radius: 50%;
+  animation: spin 0.6s linear infinite;
+}
+@keyframes spin { to { transform: rotate(360deg); } }

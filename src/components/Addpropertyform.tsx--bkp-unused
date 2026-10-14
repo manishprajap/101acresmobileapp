@@ -1,0 +1,873 @@
+import React, { useState, useEffect } from 'react';
+import {
+  IonInput,
+  IonTextarea,
+  IonSelect,
+  IonSelectOption,
+  IonToast,
+  IonIcon,
+  IonSpinner,
+} from '@ionic/react';
+import { cloudUploadOutline, closeCircle, checkmarkCircle } from 'ionicons/icons';
+import './AddPropertyForm.css';
+import { apiGet, apiPost,apiPostFormData } from '../api';
+
+
+type FormStep = 'owner' | 'basic' | 'size' | 'location' | 'bank';
+const STEP_ORDER: FormStep[] = ['owner', 'basic', 'size', 'location', 'bank'];
+const STEP_LABELS: Record<FormStep, string> = {
+  owner: 'Owner',
+  basic: 'Basic',
+  size: 'Size & Price',
+  location: 'Location',
+  bank: 'Images',
+};
+
+type LookupItem = { id: number; name: string };
+
+interface FormState {
+  contactName: string;
+  contactNumber: string;
+  contactEmail: string;
+  propertyLocation: string;
+  title: string;
+  propertyFor: string;
+  propertyType: string;
+  residentialType: string;
+  description: string;
+  squareFt: string;
+  beds: string;
+  baths: string;
+  price: string;
+  priceFor: string;
+  country: string;
+  countryId: string;
+  state: string;
+  stateId: string;
+  city: string;
+  cityId: string;
+  area: string;
+  areaId: string;
+  landmark: string;
+  address: string;
+  googleLocation: string;
+  slug: string;
+  isBankProperty: string;
+  bankPropertyType: string;
+  customBankType: string;
+}
+
+const initialFormState: FormState = {
+  contactName: '',
+  contactNumber: '',
+  contactEmail: '',
+  propertyLocation: '',
+  title: '',
+  propertyFor: '',
+  propertyType: '',
+  residentialType: '',
+  description: '',
+  squareFt: '',
+  beds: '',
+  baths: '',
+  price: '',
+  priceFor: '',
+  country: '',
+  countryId: '',
+  state: '',
+  stateId: '',
+  city: '',
+  cityId: '',
+  area: '',
+  areaId: '',
+  landmark: '',
+  address: '',
+  googleLocation: '',
+  slug: '',
+  isBankProperty: 'no',
+  bankPropertyType: '',
+  customBankType: '',
+};
+
+interface AddPropertyFormProps {
+  userId: string;
+  onSuccess?: () => void;
+}
+
+const capitalizeWords = (str: string) =>
+  str
+    .toLowerCase()
+    .trim()
+    .split(/\s+/)
+    .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
+    .join(' ');
+
+const generateSlug = (text: string) =>
+  text
+    .toLowerCase()
+    .trim()
+    .replace(/\s+/g, '-')
+    .replace(/[^\w-]+/g, '')
+    .replace(/--+/g, '-');
+
+const SKIP_CAPITALIZE = new Set([
+  'googleLocation',
+  'description',
+  'contactEmail',
+  'slug',
+]);
+
+const AddPropertyForm: React.FC<AddPropertyFormProps> = ({ userId, onSuccess }) => {
+  const [step, setStep] = useState<FormStep>('owner');
+  const [form, setForm] = useState<FormState>(initialFormState);
+const [images, setImages] = useState<{ name: string; type: string; base64: string }[]>([]);
+  const [imagePreviews, setImagePreviews] = useState<string[]>([]);
+  const [submitting, setSubmitting] = useState(false);
+  const [toast, setToast] = useState<{ message: string; color: string } | null>(null);
+
+  const [countriesList, setCountriesList] = useState<LookupItem[]>([]);
+  const [states, setStates] = useState<LookupItem[]>([]);
+  const [cities, setCities] = useState<LookupItem[]>([]);
+  const [areas, setAreas] = useState<LookupItem[]>([]);
+
+  useEffect(() => {
+    apiGet('/country')
+      .then((data) => {
+        console.log('Country data:', data);
+        setCountriesList(data || []);
+      })
+      .catch((err) => console.error('Country fetch error:', err));
+  }, []);
+
+  const updateField = <K extends keyof FormState>(key: K, value: FormState[K]) =>
+    setForm((prev) => ({ ...prev, [key]: value }));
+
+  const onCountryChange = async (countryId: string) => {
+    const selected = countriesList.find((c) => c.id.toString() === countryId);
+    setForm((prev) => ({
+      ...prev,
+      countryId,
+      country: selected?.name || '',
+      stateId: '', state: '', cityId: '', city: '', areaId: '', area: '',
+    }));
+    setCities([]);
+    setAreas([]);
+    if (!countryId) { setStates([]); return; }
+    try {
+      const data = await apiGet(`/states?countryId=${countryId}`);
+      setStates(data || []);
+    } catch (err) {
+      console.error('Failed to fetch states', err);
+      setStates([]);
+    }
+  };
+  const onStateChange = async (stateId: string) => {
+    const selected = states.find((s) => s.id.toString() === stateId);
+    setForm((prev) => ({
+      ...prev,
+      stateId,
+      state: selected?.name || '',
+      cityId: '', city: '', areaId: '', area: '',
+    }));
+    setAreas([]);
+    if (!stateId) { setCities([]); return; }
+    try {
+      const data = await apiGet(`/cities?stateId=${stateId}`);
+      setCities(data || []);
+    } catch (err) {
+      console.error('Failed to fetch cities', err);
+      setCities([]);
+    }
+  };
+
+  const onCityChange = async (cityId: string) => {
+    const selected = cities.find((c) => c.id.toString() === cityId);
+    const cityName = selected?.name || '';
+    setForm((prev) => ({
+      ...prev,
+      cityId,
+      city: cityName,
+      slug: cityName ? generateSlug(cityName) : prev.slug,
+      areaId: '', area: '',
+    }));
+    if (!cityId) { setAreas([]); return; }
+    try {
+      const data = await apiGet(`/area?cityId=${cityId}`);
+      console.log('Area API response:', data);
+      const list = Array.isArray(data) ? data : data.data || [];
+      const mapped: LookupItem[] = list.map((a: any) => ({
+        id: a.id,
+        name: a.name || a.area_name || a.title || '',
+      }));
+      setAreas(mapped);
+    } catch (err) {
+      console.error('Failed to fetch areas', err);
+      setAreas([]);
+    }
+  };
+
+  const onAreaChange = (areaId: string) => {
+    const selected = areas.find((a) => a.id.toString() === areaId);
+    setForm((prev) => ({
+      ...prev,
+      areaId,
+      area: selected?.name || '',
+    }));
+  };
+
+const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+  const files = Array.from(e.target.files || []);
+  const valid = files.filter(
+    (f) =>
+      ['image/jpeg', 'image/png', 'image/jpg', 'image/webp'].includes(f.type) &&
+      f.size <= 10 * 1024 * 1024
+  );
+  if (valid.length !== files.length)
+    setToast({ message: 'Only JPG/PNG/WebP under 10 MB allowed.', color: 'warning' });
+
+  for (const file of valid) {
+    try {
+      const dataUrl = await new Promise<string>((resolve, reject) => {
+        const r = new FileReader();
+        r.onload = () => resolve(r.result as string);
+        r.onerror = () => reject(new Error('Failed to read file'));
+        r.readAsDataURL(file);
+      });
+      setImages((p) => [...p, { name: file.name, type: file.type, base64: dataUrl }]);
+      setImagePreviews((p) => [...p, dataUrl]);
+    } catch (err) {
+      console.error('Image read error:', err);
+    }
+  }
+
+  // Allow re-selecting the same file later
+  e.target.value = '';
+};
+
+  const removeImage = (i: number) => {
+    setImages((p) => p.filter((_, idx) => idx !== i));
+    setImagePreviews((p) => p.filter((_, idx) => idx !== i));
+  };
+
+  const validateStep = (s: FormStep): string | null => {
+    if (s === 'owner') {
+      if (!form.contactName.trim()) return 'Name is required';
+      if (!form.contactNumber.trim()) return 'Contact number is required';
+    }
+    if (s === 'basic') {
+      if (!form.propertyLocation.trim()) return 'Property location is required';
+      if (!form.title.trim()) return 'Title is required';
+      if (!form.propertyFor.trim()) return 'Property for is required';
+    }
+    if (s === 'size') {
+      if (!form.squareFt.trim()) return 'Square footage is required';
+      if (!form.price.trim()) return 'Price is required';
+    }
+    return null;
+  };
+
+  const currentIdx = STEP_ORDER.indexOf(step);
+
+  const goNext = () => {
+    const err = validateStep(step);
+    if (err) { setToast({ message: err, color: 'danger' }); return; }
+    if (currentIdx < STEP_ORDER.length - 1) setStep(STEP_ORDER[currentIdx + 1]);
+  };
+
+  const goBack = () => {
+    if (currentIdx > 0) setStep(STEP_ORDER[currentIdx - 1]);
+  };
+
+ const handleSubmit = async () => {
+  const userId = localStorage.getItem("userId");
+  const payload = new FormData();
+
+  // Step validation
+  for (const s of STEP_ORDER) {
+    const err = validateStep(s);
+    if (err) {
+      setStep(s);
+      setToast({ message: err, color: "danger" });
+      return;
+    }
+  }
+
+  if (!userId) {
+    setToast({
+      message: "User ID not found. Please log in again.",
+      color: "danger",
+    });
+    return;
+  }
+
+  setSubmitting(true);
+
+  try {
+    // ── Build the FormData payload ──────────────────────────
+    payload.append("userId", userId);
+
+    const skipFields = new Set([...SKIP_CAPITALIZE]);
+
+    Object.entries(form).forEach(([key, value]) => {
+      if (value === undefined || value === null) return;
+      const shouldCapitalize = typeof value === "string" && !skipFields.has(key);
+      const finalValue = shouldCapitalize ? capitalizeWords(value) : value;
+      payload.append(key, finalValue.toString());
+    });
+
+    if (!form.slug) {
+      const slugBase = form.city || form.title || "property";
+      payload.set("slug", generateSlug(slugBase));
+    }
+
+   payload.append(
+  "imagesPayload",
+  JSON.stringify(
+    images.map((img) => ({
+      name: img.name,
+      type: img.type,
+      data: img.base64.split(',')[1], // "data:image/...;base64," prefix hata diya
+    }))
+  )
+);
+
+    console.log("Submitting Property...");
+
+    const data = await apiPostFormData("/mobileproperty", payload);
+
+    console.log("API Response:", data);
+
+    setToast({
+      message: data.message || "Property added successfully!",
+      color: "success",
+    });
+
+    setForm(initialFormState);
+    setImages([]);
+    setImagePreviews([]);
+    setStates([]);
+    setCities([]);
+    setAreas([]);
+    setStep("owner");
+
+    onSuccess?.();
+
+  } catch (err: any) {
+    console.error("Submit Error:", err);
+    setToast({
+      message: err?.message || "Something went wrong",
+      color: "danger",
+    });
+  } finally {
+    setSubmitting(false);
+  }
+};
+
+
+  return (
+    <div className="apf-root">
+      <div className="apf-stepper">
+        {STEP_ORDER.map((s, i) => {
+          const done = i < currentIdx;
+          const active = s === step;
+          const isLocked = i > currentIdx; // 🔒 future steps locked until you Continue through validation
+
+          return (
+            <React.Fragment key={s}>
+              <button
+                className={`apf-step-dot ${active ? 'apf-step-dot--active' : ''} ${done ? 'apf-step-dot--done' : ''} ${isLocked ? 'apf-step-dot--locked' : ''}`}
+                onClick={() => {
+                  if (isLocked) return; // ignore clicks on future/locked tabs
+                  setStep(s); // allow jumping back to any already-visited step
+                }}
+                disabled={isLocked}
+                aria-disabled={isLocked}
+                aria-label={STEP_LABELS[s]}
+              >
+                {done ? <IonIcon icon={checkmarkCircle} /> : <span>{i + 1}</span>}
+                <span className="apf-step-label">{STEP_LABELS[s]}</span>
+              </button>
+              {i < STEP_ORDER.length - 1 && (
+                <div className={`apf-step-line ${done ? 'apf-step-line--done' : ''}`} />
+              )}
+            </React.Fragment>
+          );
+        })}
+      </div>
+
+      <div className="apf-card">
+        {step === 'owner' && <OwnerInfoStep form={form} updateField={updateField} />}
+        {step === 'basic' && <BasicInfoStep form={form} updateField={updateField} />}
+        {step === 'size' && <SizePricingStep form={form} updateField={updateField} />}
+        {step === 'location' && (
+          <LocationStep
+            form={form}
+            countriesList={countriesList}
+            states={states}
+            cities={cities}
+            areas={areas}
+            onCountryChange={onCountryChange}
+            onStateChange={onStateChange}
+            onCityChange={onCityChange}
+            onAreaChange={onAreaChange}
+            updateField={updateField}
+          />
+        )}
+        {step === 'bank' && (
+          <BankImagesStep
+            form={form}
+            updateField={updateField}
+            imagePreviews={imagePreviews}
+            onImageUpload={handleImageUpload}
+            onRemoveImage={removeImage}
+          />
+        )}
+      </div>
+
+      <div className="apf-nav">
+        <button className="apf-nav-btn apf-nav-btn--back" disabled={step === 'owner'} onClick={goBack}>
+          Back
+        </button>
+        {step !== 'bank' ? (
+          <button className="apf-nav-btn apf-nav-btn--next" onClick={goNext}>
+            Continue
+          </button>
+        ) : (
+          <button className="apf-nav-btn apf-nav-btn--submit" onClick={handleSubmit} disabled={submitting}>
+            {submitting ? <IonSpinner name="dots" /> : 'Save Property'}
+          </button>
+        )}
+      </div>
+
+      <IonToast
+        isOpen={!!toast}
+        message={toast?.message}
+        duration={3000}
+        color={toast?.color}
+        onDidDismiss={() => setToast(null)}
+      />
+    </div>
+  );
+};
+
+// ── Shared field wrapper ──────────────────────────────────
+interface FieldProps {
+  label: string;
+  required?: boolean;
+  children: React.ReactNode;
+}
+
+const Field: React.FC<FieldProps> = ({ label, required, children }) => (
+  <div className="apf-field">
+    <label className="apf-field-label">
+      {label}
+      {required && <span className="apf-required"> *</span>}
+    </label>
+    {children}
+  </div>
+);
+
+interface StepProps {
+  form: FormState;
+  updateField: <K extends keyof FormState>(key: K, value: FormState[K]) => void;
+}
+
+// Step 1 — Owner Info
+const OwnerInfoStep: React.FC<StepProps> = ({ form, updateField }) => (
+  <>
+    <h3 className="apf-step-heading">Owner contact</h3>
+    <Field label="Full name" required>
+      <IonInput
+        className="apf-input"
+        placeholder="e.g. Rahul Sharma"
+        value={form.contactName}
+        onIonInput={(e) => updateField('contactName', e.detail.value!)}
+      />
+    </Field>
+    <Field label="Contact number" required>
+      <IonInput
+        className="apf-input"
+        type="tel"
+        placeholder="+91 98765 43210"
+        value={form.contactNumber}
+        onIonInput={(e) => updateField('contactNumber', e.detail.value!)}
+      />
+    </Field>
+    <Field label="Email address">
+      <IonInput
+        className="apf-input"
+        type="email"
+        placeholder="name@example.com"
+        value={form.contactEmail}
+        onIonInput={(e) => updateField('contactEmail', e.detail.value!)}
+      />
+    </Field>
+  </>
+);
+
+// Step 2 — Basic Info
+const RESIDENTIAL_SUBTYPES = [
+  { value: 'House', label: 'House' },
+  { value: 'Flat', label: 'Flat' },
+  { value: 'Farm House', label: 'Farm House' },
+  { value: 'Land', label: 'Khali Land / Plot' },
+  { value: 'Villa', label: 'Villa' },
+];
+
+const COMMERCIAL_SUBTYPES = [
+  { value: 'Shop', label: 'Shop' },
+  { value: 'Office', label: 'Office' },
+  { value: 'Hotel', label: 'Hotel' },
+  { value: 'Land', label: 'Commercial Land' },
+  { value: 'Marriage Lawn', label: 'Marriage Lawn' },
+  { value: 'Warehouse', label: 'Warehouse' },
+  { value: 'Showroom', label: 'Showroom' },
+];
+
+const BasicInfoStep: React.FC<StepProps> = ({ form, updateField }) => {
+  const subtypes =
+    form.propertyType === 'Residential'
+      ? RESIDENTIAL_SUBTYPES
+      : form.propertyType === 'Commercial'
+        ? COMMERCIAL_SUBTYPES
+        : [];
+
+  return (
+    <>
+      <h3 className="apf-step-heading">Property basics</h3>
+      <Field label="Property location" required>
+        <IonSelect
+          className="apf-select"
+          placeholder="Select location type"
+          value={form.propertyLocation}
+          onIonChange={(e) => updateField('propertyLocation', e.detail.value)}
+        >
+          <IonSelectOption value="National">National</IonSelectOption>
+          <IonSelectOption value="International">International</IonSelectOption>
+        </IonSelect>
+      </Field>
+      <Field label="Listing title" required>
+        <IonInput
+          className="apf-input"
+          placeholder="e.g. 3 BHK Flat in Gomti Nagar"
+          value={form.title}
+          onIonInput={(e) => updateField('title', e.detail.value!)}
+        />
+      </Field>
+      <div className="apf-row">
+        <Field label="Listed for" required>
+          <IonSelect
+            className="apf-select"
+            placeholder="Sale / Rent"
+            value={form.propertyFor}
+            onIonChange={(e) => updateField('propertyFor', e.detail.value)}
+          >
+            <IonSelectOption value="Rent">Rent</IonSelectOption>
+            <IonSelectOption value="Sale">Sale</IonSelectOption>
+          </IonSelect>
+        </Field>
+        <Field label="Property type">
+          <IonSelect
+            className="apf-select"
+            placeholder="Type"
+            value={form.propertyType}
+            onIonChange={(e) => {
+              updateField('propertyType', e.detail.value);
+              updateField('residentialType', '');
+            }}
+          >
+            <IonSelectOption value="Residential">Residential</IonSelectOption>
+            <IonSelectOption value="Commercial">Commercial</IonSelectOption>
+          </IonSelect>
+        </Field>
+      </div>
+      {subtypes.length > 0 && (
+        <Field label={form.propertyType === 'Residential' ? 'Residential type' : 'Commercial type'}>
+          <IonSelect
+            className="apf-select"
+            placeholder="Select sub-type"
+            value={form.residentialType}
+            onIonChange={(e) => updateField('residentialType', e.detail.value)}
+          >
+            {subtypes.map((opt) => (
+              <IonSelectOption key={opt.value} value={opt.value}>
+                {opt.label}
+              </IonSelectOption>
+            ))}
+          </IonSelect>
+        </Field>
+      )}
+      <Field label="Description">
+        <IonTextarea
+          className="apf-textarea"
+          placeholder="Describe the property — key highlights, nearby amenities, condition…"
+          autoGrow
+          rows={4}
+          value={form.description}
+          onIonInput={(e) => updateField('description', e.detail.value!)}
+        />
+      </Field>
+    </>
+  );
+};
+
+// Step 3 — Size & Pricing
+const SizePricingStep: React.FC<StepProps> = ({ form, updateField }) => (
+  <>
+    <h3 className="apf-step-heading">Size & pricing</h3>
+    <Field label="Area (sq ft)" required>
+      <IonInput
+        className="apf-input"
+        type="number"
+        placeholder="e.g. 1200"
+        value={form.squareFt}
+        onIonInput={(e) => updateField('squareFt', e.detail.value!)}
+      />
+    </Field>
+    <div className="apf-row">
+      <Field label="Bedrooms">
+        <IonInput
+          className="apf-input"
+          type="number"
+          placeholder="0"
+          value={form.beds}
+          onIonInput={(e) => updateField('beds', e.detail.value!)}
+        />
+      </Field>
+      <Field label="Bathrooms">
+        <IonInput
+          className="apf-input"
+          type="number"
+          placeholder="0"
+          value={form.baths}
+          onIonInput={(e) => updateField('baths', e.detail.value!)}
+        />
+      </Field>
+    </div>
+    <div className="apf-divider" />
+    <div className="apf-row apf-row--stretch">
+      <Field label="Price (₹)" required>
+        <IonInput
+          className="apf-input"
+          type="number"
+          placeholder="e.g. 4500000"
+          value={form.price}
+          onIonInput={(e) => updateField('price', e.detail.value!)}
+        />
+      </Field>
+      <Field label="Price basis">
+        <IonSelect
+          className="apf-select"
+          placeholder="Select"
+          value={form.priceFor}
+          onIonChange={(e) => updateField('priceFor', e.detail.value)}
+        >
+          <IonSelectOption value="Monthly">Monthly</IonSelectOption>
+          <IonSelectOption value="Yearly">Yearly</IonSelectOption>
+          <IonSelectOption value="Total">Total (One Time)</IonSelectOption>
+        </IonSelect>
+      </Field>
+    </div>
+  </>
+);
+
+// Step 4 — Location
+interface LocationStepProps extends StepProps {
+  countriesList: LookupItem[];
+  states: LookupItem[];
+  cities: LookupItem[];
+  areas: LookupItem[];
+  onCountryChange: (id: string) => void;
+  onStateChange: (id: string) => void;
+  onCityChange: (id: string) => void;
+  onAreaChange: (id: string) => void;
+}
+
+const LocationStep: React.FC<LocationStepProps> = ({
+  form,
+  countriesList,
+  states,
+  cities,
+  areas,
+  onCountryChange,
+  onStateChange,
+  onCityChange,
+  onAreaChange,
+  updateField,
+}) => (
+  <>
+    <h3 className="apf-step-heading">Location details</h3>
+    <div className="apf-row">
+      <Field label="Country">
+        <IonSelect
+          className="apf-select"
+          placeholder="Select Country"
+          value={form.countryId}
+          onIonChange={(e) => onCountryChange(e.detail.value)}
+        >
+          {countriesList.map((c) => (
+            <IonSelectOption key={c.id} value={c.id.toString()}>
+              {c.name}
+            </IonSelectOption>
+          ))}
+        </IonSelect>
+      </Field>
+      <Field label="State">
+        <IonSelect
+          className="apf-select"
+          placeholder="Select State"
+          value={form.stateId}
+          disabled={!form.countryId}
+          onIonChange={(e) => onStateChange(e.detail.value)}
+        >
+          {states.map((s) => (
+            <IonSelectOption key={s.id} value={s.id.toString()}>
+              {s.name}
+            </IonSelectOption>
+          ))}
+        </IonSelect>
+      </Field>
+    </div>
+    <div className="apf-row">
+      <Field label="City">
+        <IonSelect
+          className="apf-select"
+          placeholder="Select City"
+          value={form.cityId}
+          disabled={!form.stateId}
+          onIonChange={(e) => onCityChange(e.detail.value)}
+        >
+          {cities.map((c) => (
+            <IonSelectOption key={c.id} value={c.id.toString()}>
+              {c.name}
+            </IonSelectOption>
+          ))}
+        </IonSelect>
+      </Field>
+      <Field label="Area / Colony">
+        <IonSelect
+          className="apf-select"
+          placeholder="Select Area"
+          value={form.areaId}
+          disabled={!form.cityId}
+          onIonChange={(e) => onAreaChange(e.detail.value)}
+        >
+          {areas.map((a) => (
+            <IonSelectOption key={a.id} value={a.id.toString()}>
+              {a.name}
+            </IonSelectOption>
+          ))}
+        </IonSelect>
+      </Field>
+    </div>
+    <Field label="Landmark">
+      <IonInput
+        className="apf-input"
+        placeholder="e.g. Near City Mall"
+        value={form.landmark}
+        onIonInput={(e) => updateField('landmark', e.detail.value!)}
+      />
+    </Field>
+    <Field label="Full address">
+      <IonTextarea
+        className="apf-textarea"
+        placeholder="House no., street, locality…"
+        autoGrow
+        rows={3}
+        value={form.address}
+        onIonInput={(e) => updateField('address', e.detail.value!)}
+      />
+    </Field>
+    <Field label="Google Maps link">
+      <IonInput
+        className="apf-input"
+        placeholder="Paste maps.google.com URL"
+        value={form.googleLocation}
+        onIonInput={(e) => updateField('googleLocation', e.detail.value!)}
+      />
+    </Field>
+  </>
+);
+
+// Step 5 — Bank & Images
+interface BankImagesStepProps extends StepProps {
+  imagePreviews: string[];
+  onImageUpload: (e: React.ChangeEvent<HTMLInputElement>) => void;
+  onRemoveImage: (i: number) => void;
+}
+
+const BankImagesStep: React.FC<BankImagesStepProps> = ({
+  form,
+  updateField,
+  imagePreviews,
+  onImageUpload,
+  onRemoveImage,
+}) => (
+  <>
+    <h3 className="apf-step-heading">Bank & images</h3>
+    <Field label="Bank / auction property">
+      <IonSelect
+        className="apf-select"
+        value={form.isBankProperty}
+        onIonChange={(e) => {
+          const value = e.detail.value;
+          updateField('isBankProperty', value);
+          if (value === 'no') {
+            updateField('bankPropertyType', '');
+            updateField('customBankType', '');
+          }
+        }}
+      >
+        <IonSelectOption value="no">No</IonSelectOption>
+        <IonSelectOption value="yes">Yes</IonSelectOption>
+      </IonSelect>
+    </Field>
+    {form.isBankProperty === 'yes' && (
+      <>
+        <Field label="Bank property type">
+          <IonSelect
+            className="apf-select"
+            placeholder="Select"
+            value={form.bankPropertyType}
+            onIonChange={(e) => updateField('bankPropertyType', e.detail.value)}
+          >
+            <IonSelectOption value="Bank Auction Property">Bank Auction Property</IonSelectOption>
+            <IonSelectOption value="Distressed Property">Distressed Property</IonSelectOption>
+          </IonSelect>
+        </Field>
+        <Field label="Custom bank type">
+          <IonInput
+            className="apf-input"
+            placeholder="Enter bank name or type"
+            value={form.customBankType}
+            onIonInput={(e) => updateField('customBankType', e.detail.value!)}
+          />
+        </Field>
+      </>
+    )}
+    <div className="apf-divider" />
+    <p className="apf-upload-hint">
+      Add photos to attract more buyers. JPG or PNG, max 10 MB each.
+    </p>
+    <label className="apf-upload-zone">
+      <IonIcon icon={cloudUploadOutline} className="apf-upload-icon" />
+      <span className="apf-upload-text">Tap to upload images</span>
+      <span className="apf-upload-sub">or drag and drop here</span>
+      <input type="file" accept="image/jpeg,image/png" multiple hidden onChange={onImageUpload} />
+    </label>
+    {imagePreviews.length > 0 && (
+      <div className="apf-preview-grid">
+        {imagePreviews.map((src, i) => (
+          <div className="apf-preview-item" key={i}>
+            <img src={src} alt={`Upload ${i + 1}`} />
+            <button className="apf-preview-remove" onClick={() => onRemoveImage(i)} aria-label="Remove image">
+              <IonIcon icon={closeCircle} />
+            </button>
+          </div>
+        ))}
+      </div>
+    )}
+  </>
+);
+
+export default AddPropertyForm;
