@@ -7,7 +7,6 @@ import {
   IonRefresherContent,
   IonInfiniteScroll,
   IonInfiniteScrollContent,
-  IonToast,
   RefresherEventDetail,
 } from '@ionic/react';
 import {
@@ -17,15 +16,19 @@ import {
   bedOutline,
   addOutline,
   arrowBackOutline,
+  createOutline,
+  trashOutline,
 } from 'ionicons/icons';
 import { useHistory } from 'react-router-dom';
+import Swal from 'sweetalert2';
 import BottomNav from '../components/BottomNav';
 import './Dashboard.css';
-import { apiGet } from '../api';
+import { apiDelete, apiGet } from '../api';
 import Navbar from '../components/Navbar';
 
 // ── Types ──────────────────────────────────────────────────
 export interface Property {
+  [key: string]: unknown;
   id: number;
   title: string;
   propertyFor: string;
@@ -39,11 +42,15 @@ export interface Property {
   state: string;
   country: string;
   area?: string;
+  countryName?: string;
+  stateName?: string;
+  cityName?: string;
+  areaName?: string;
   landmark?: string;
   address?: string;
   image?: string | string[];
   images?: string | string[];
-  status?: string; // ✅ FIXED: Added status field from API
+  status?: string;
   createdAt: string;
 }
 
@@ -77,13 +84,263 @@ const getGreeting = (): string => {
   return 'Good night,';
 };
 
-const formatINR = (amount: number | string | undefined | null): string => {
-  const numericValue = typeof amount === 'string' ? Number(amount) : amount;
-  const value = typeof numericValue === 'number' && !Number.isNaN(numericValue) ? numericValue : 0;
-  return `₹${value.toLocaleString('en-IN')}`;
+// ── Price (ONLY the `price` field is used) ─────────────────
+const getPropertyPrice = (property: Property): number => {
+  const value = Number(String(property.price ?? '').replace(/,/g, '').trim());
+  return Number.isFinite(value) ? value : 0;
 };
 
-// ✅ FIXED: Use actual `status` field from API instead of deriving from `propertyFor`
+const showPrice = (price: number): string => `₹${price.toLocaleString('en-IN')}`;
+
+const getPropertyLocationName = (...values: unknown[]): string =>
+  String(values.find((value) => value != null && String(value).trim() && !/^\d+$/.test(String(value).trim())) ?? '');
+
+const getPropertyLocationId = (property: Property, idKeys: string[], valueKey: string): string => {
+  const value = idKeys.map((key) => property[key]).find((item) => item != null && String(item).trim());
+  const candidate = value ?? property[valueKey];
+  return candidate != null && /^\d+$/.test(String(candidate).trim()) ? String(candidate).trim() : '';
+};
+
+const parseLookupItems = (response: unknown): Array<{ id: string; name: string }> => {
+  const result = response as Record<string, unknown> | null;
+  const candidates: unknown[] = [
+    response,
+    result?.data,
+    result?.result,
+    (result?.data as Record<string, unknown> | undefined)?.data,
+    (result?.result as Record<string, unknown> | undefined)?.data,
+  ];
+  const rows = candidates.find(Array.isArray) as unknown[] | undefined;
+  return (rows ?? []).flatMap((row) => {
+    if (!row || typeof row !== 'object') return [];
+    const item = row as Record<string, unknown>;
+    const id = item.id ?? item.value ?? item.countryId ?? item.country_id
+      ?? item.stateId ?? item.state_id ?? item.cityId ?? item.city_id
+      ?? item.areaId ?? item.area_id ?? item.locality_id;
+    const name = item.name ?? item.country_name ?? item.countryName
+      ?? item.state_name ?? item.stateName ?? item.city_name ?? item.cityName
+      ?? item.area_name ?? item.areaName ?? item.locality_name ?? item.localityName
+      ?? item.locality ?? item.label ?? item.title;
+    return id != null && name != null && String(name).trim()
+      ? [{ id: String(id), name: String(name).trim() }]
+      : [];
+  });
+};
+
+const unwrapDashboardProperty = (response: unknown): Property | null => {
+  if (!response || typeof response !== 'object') return null;
+  const result = response as Record<string, unknown>;
+  const data = result.data as Record<string, unknown> | undefined;
+  const nestedData = data?.data as Record<string, unknown> | undefined;
+  const candidates = [data?.property, result.property, nestedData, data, result.result, result];
+
+  for (const candidate of candidates) {
+    if (
+      candidate &&
+      typeof candidate === 'object' &&
+      !Array.isArray(candidate) &&
+      ('id' in candidate || 'propertyId' in candidate || 'title' in candidate)
+    ) {
+      return candidate as Property;
+    }
+  }
+  return null;
+};
+
+const resolvePropertyLocations = async (properties: Property[]): Promise<Property[]> => {
+  try {
+    const detailedProperties = await Promise.all(properties.map(async (property) => {
+      try {
+        const response = await apiGet(`/properties/${property.id}`);
+        const detail = unwrapDashboardProperty(response);
+        if (!detail) {
+          console.warn(`Property ${property.id} detail response did not contain a property record.`);
+          return property;
+        }
+
+        const merged = { ...property, ...detail };
+        return { ...merged, price: getPropertyPrice(merged) };
+      } catch (error) {
+        console.warn(`Could not load details for property ${property.id}; using list data.`, error);
+        return property;
+      }
+    }));
+
+    const countries = parseLookupItems(await apiGet('/country'));
+    const countryById = new Map(countries.map((item) => [item.id, item.name]));
+    const countryIdByName = new Map(countries.map((item) => [item.name.toLowerCase(), item.id]));
+    const countryIds = new Set<string>();
+
+    detailedProperties.forEach((property) => {
+      const countryId = getPropertyLocationId(property, ['countryId', 'country_id'], 'country');
+      if (countryId) countryIds.add(countryId);
+      const countryName = getPropertyLocationName(property.countryName, property.country_name, property.country);
+      const matchedId = countryName ? countryIdByName.get(countryName.toLowerCase()) : undefined;
+      if (matchedId) countryIds.add(matchedId);
+    });
+
+    const statesByCountry = new Map<string, Map<string, string>>();
+    await Promise.all(Array.from(countryIds, async (countryId) => {
+      const states = parseLookupItems(await apiGet(`/states?countryId=${encodeURIComponent(countryId)}`));
+      statesByCountry.set(countryId, new Map(states.map((item) => [item.id, item.name])));
+    }));
+
+    const stateIds = new Set<string>();
+    const stateIdByProperty = new Map<number, string>();
+    detailedProperties.forEach((property) => {
+      const countryId = getPropertyLocationId(property, ['countryId', 'country_id'], 'country')
+        || countryIdByName.get(getPropertyLocationName(property.countryName, property.country_name, property.country).toLowerCase())
+        || '';
+      const rawState = getPropertyLocationId(property, ['stateId', 'state_id'], 'state');
+      const states = statesByCountry.get(countryId);
+      const stateId = rawState
+        || Array.from(states?.entries() ?? []).find(
+          ([, name]) => name.toLowerCase() === getPropertyLocationName(property.stateName, property.state_name, property.state).toLowerCase(),
+        )?.[0]
+        || '';
+      if (stateId) {
+        stateIds.add(stateId);
+        stateIdByProperty.set(property.id, stateId);
+      }
+    });
+
+    const citiesByState = new Map<string, Map<string, string>>();
+    await Promise.all(Array.from(stateIds, async (stateId) => {
+      const cities = parseLookupItems(await apiGet(`/cities?stateId=${encodeURIComponent(stateId)}`));
+      citiesByState.set(stateId, new Map(cities.map((item) => [item.id, item.name])));
+    }));
+
+    const cityIds = new Set<string>();
+    detailedProperties.forEach((property) => {
+      const cityId = getPropertyLocationId(property, ['cityId', 'city_id'], 'city');
+      if (cityId) cityIds.add(cityId);
+    });
+
+    const areasByCity = new Map<string, Map<string, string>>();
+    await Promise.all(Array.from(cityIds, async (cityId) => {
+      const areas = parseLookupItems(await apiGet(`/area?cityId=${encodeURIComponent(cityId)}`));
+      areasByCity.set(cityId, new Map(areas.map((item) => [item.id, item.name])));
+    }));
+
+    return detailedProperties.map((property) => {
+      const countryId = getPropertyLocationId(property, ['countryId', 'country_id'], 'country')
+        || countryIdByName.get(getPropertyLocationName(property.countryName, property.country_name, property.country).toLowerCase())
+        || '';
+      const stateId = stateIdByProperty.get(property.id)
+        || getPropertyLocationId(property, ['stateId', 'state_id'], 'state');
+      const cityId = getPropertyLocationId(property, ['cityId', 'city_id'], 'city');
+      const country = getPropertyLocationName(property.countryName, property.country_name, property.country)
+        || countryById.get(countryId)
+        || '';
+      const rawState = getPropertyLocationName(property.stateName, property.state_name, property.state);
+      const state = rawState
+        || statesByCountry.get(countryId)?.get(stateId)
+        || '';
+      const cityOptions = citiesByState.get(stateId);
+      const rawCity = getPropertyLocationName(property.cityName, property.city_name, property.city);
+      const city = rawCity
+        || cityOptions?.get(cityId)
+        || '';
+      const areaId = getPropertyLocationId(property, ['areaId', 'area_id', 'localityId', 'locality_id'], 'area');
+      const areaOptions = areasByCity.get(cityId);
+      const area = getPropertyLocationName(
+        property.areaName,
+        property.area_name,
+        property.localityName,
+        property.locality_name,
+        property.locality,
+        property.area,
+      ) || areaOptions?.get(areaId) || '';
+
+      return { ...property, price: getPropertyPrice(property), country, state, city, area };
+    });
+  } catch (error) {
+    console.error('Could not resolve dashboard property locations:', error);
+    return properties.map((property) => ({
+      ...property,
+      price: getPropertyPrice(property),
+      country: getPropertyLocationName(property.countryName, property.country_name, property.country),
+      state: getPropertyLocationName(property.stateName, property.state_name, property.state),
+      city: getPropertyLocationName(property.cityName, property.city_name, property.city),
+      area: getPropertyLocationName(
+        property.areaName,
+        property.area_name,
+        property.localityName,
+        property.locality_name,
+        property.locality,
+        property.area,
+      ),
+    }));
+  }
+};
+
+// ── Attach location NAMES only (original IDs untouched) ────
+// Edit flow ko original country/state/city IDs chahiye, isliye
+// yahan sirf countryName/stateName/cityName/areaName add hote hain.
+const attachLocationNames = async (properties: Property[]): Promise<Property[]> => {
+  if (properties.length === 0) return properties;
+
+  const resolved = await resolvePropertyLocations(properties);
+  const resolvedById = new Map(resolved.map((item) => [item.id, item]));
+
+  return properties.map((property) => {
+    const match = resolvedById.get(property.id);
+    return {
+      ...property,
+      countryName: match?.country || property.countryName || '',
+      stateName: match?.state || property.stateName || '',
+      cityName: match?.city || property.cityName || '',
+      areaName: match?.area || property.areaName || '',
+      area: match?.area || property.area || '',
+    };
+  });
+};
+
+const getErrorMessage = (error: unknown, fallback: string): string => {
+  if (error instanceof Error) return error.message;
+  if (error && typeof error === 'object') {
+    const response = error as { error?: unknown; message?: unknown };
+    if (typeof response.error === 'string' && response.error) return response.error;
+    if (typeof response.message === 'string' && response.message) return response.message;
+  }
+  return fallback;
+};
+
+const showRequestError = async (error: unknown, fallback: string): Promise<void> => {
+  const message = getErrorMessage(error, fallback);
+  const authenticationRequired = message.toLowerCase().includes('authentication required');
+  await Swal.fire({
+    icon: 'error',
+    title: authenticationRequired ? 'Authentication required' : 'Request failed',
+    text: authenticationRequired ? 'Please sign in again, then retry this action.' : message,
+    confirmButtonColor: '#185FA5',
+    heightAuto: false,
+  });
+};
+
+// ── Confirmation helper (used by Edit and Delete) ──────────
+const confirmAction = async (options: {
+  title: string;
+  text: string;
+  confirmText: string;
+  confirmColor?: string;
+  icon?: 'warning' | 'question';
+}): Promise<boolean> => {
+  const result = await Swal.fire({
+    icon: options.icon ?? 'question',
+    title: options.title,
+    text: options.text,
+    showCancelButton: true,
+    confirmButtonText: options.confirmText,
+    confirmButtonColor: options.confirmColor ?? '#185FA5',
+    cancelButtonText: 'Cancel',
+    reverseButtons: true,
+    heightAuto: false, // prevents layout shift inside Ionic
+  });
+  return result.isConfirmed;
+};
+
+// ── Status helpers (uses actual `status` field from API) ───
 const getStatusLabel = (property: Property): string => {
   return property.status ?? 'Inactive';
 };
@@ -174,7 +431,7 @@ interface PageHeaderProps {
   showNotifications?: boolean;
 }
 
-const PageHeader: React.FC<PageHeaderProps> = ({ title, onBack }) => (
+export const PageHeader: React.FC<PageHeaderProps> = ({ title, onBack }) => (
   <div className="dash-top-header">
     <div className="dash-top-left">
       {onBack ? (
@@ -208,21 +465,21 @@ const Dashboard: React.FC = () => {
     history.push('/add-property');
   };
 
+  const openEditProperty = (property: Property): void => {
+    history.push('/add-property', { property });
+  };
+
+  // Kept for the (currently commented-out) PageHeader back button
   const goBack = (): void => {
     setActiveView(prevView ?? 'home');
     setPrevView(null);
   };
-
-  const isHome = activeView === 'home';
+  void goBack;
+  void TAB_LABELS;
 
   return (
     <IonPage className="dash-page">
       <Navbar />
-      {/* <PageHeader
-        title={TAB_LABELS[activeView]}
-        onBack={!isHome ? goBack : undefined}
-        showNotifications={isHome}
-      /> */}
 
       <IonContent fullscreen className="dash-content">
         {activeView === 'home' && (
@@ -232,7 +489,7 @@ const Dashboard: React.FC = () => {
           />
         )}
         {activeView === 'properties' && (
-          <PropertiesView onAddNew={openAddProperty} />
+          <PropertiesView onAddNew={openAddProperty} onEdit={openEditProperty} />
         )}
       </IonContent>
 
@@ -266,7 +523,15 @@ const HomeView: React.FC<{ onAddNew: () => void; onViewAll: () => void }> = ({
     const userId = localStorage.getItem('userId');
 
     if (!userId) {
-      setError('User not logged in');
+      const message = 'Please sign in to view your dashboard.';
+      setError(message);
+      void Swal.fire({
+        icon: 'error',
+        title: 'Authentication required',
+        text: message,
+        confirmButtonColor: '#185FA5',
+        heightAuto: false,
+      });
       setLoading(false);
       return;
     }
@@ -275,7 +540,6 @@ const HomeView: React.FC<{ onAddNew: () => void; onViewAll: () => void }> = ({
       const propData = await apiGet(`/userproperty?userId=${userId}&page=1&pageSize=100`) as PropertyListResponse;
       if (!propData.success) throw new Error(propData.message ?? 'API error');
 
-      // ✅ NEW: newest properties first
       const allListings: Property[] = (propData.data ?? []).slice();
       const pageSize = Math.max(propData.pageSize || 100, 1);
       const totalPages = Math.ceil((propData.total || allListings.length) / pageSize);
@@ -292,24 +556,35 @@ const HomeView: React.FC<{ onAddNew: () => void; onViewAll: () => void }> = ({
         allListings.push(...remainingPages.flat());
       }
 
-      const list: Property[] = allListings.slice().sort(
+      // Newest properties first
+      const list: Property[] = allListings.map((property) => ({
+        ...property,
+        price: getPropertyPrice(property),
+        landmark: getPropertyLocationName(
+          property.subLocalityName,
+          property.sublocalityName,
+          property.sub_locality_name,
+          property.subLocality,
+          property.sublocality,
+          property.sub_locality,
+          property.landmark,
+        ),
+      })).sort(
         (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
       );
 
-      setProperties(list.slice(0, 3));
+      setProperties(await resolvePropertyLocations(list.slice(0, 3)));
       setStats({
         activeListings: propData.total ?? list.length,
-        pipelineValue: list.reduce((sum, property) => sum + (Number(property.price) || 0), 0),
+        pipelineValue: list.reduce((sum, property) => sum + getPropertyPrice(property), 0),
         viewingsToday: 0,
         unconfirmedViewings: 0,
         dealsClosedThisMonth: 0,
       });
     } catch (err: unknown) {
-      const message =
-        err instanceof Error
-          ? err.message
-          : (err as Record<string, string>)?.error ?? 'Could not load dashboard';
+      const message = getErrorMessage(err, 'Could not load dashboard');
       setError(message);
+      await showRequestError(err, 'Could not load dashboard');
     } finally {
       setLoading(false);
     }
@@ -318,12 +593,16 @@ const HomeView: React.FC<{ onAddNew: () => void; onViewAll: () => void }> = ({
   useEffect(() => { void fetchAll(); }, [fetchAll]);
 
   useEffect(() => {
-    const handlePropertyCreated = () => {
+    const handleChange = () => {
       void fetchAll();
     };
 
-    window.addEventListener('property:created', handlePropertyCreated);
-    return () => window.removeEventListener('property:created', handlePropertyCreated);
+    window.addEventListener('property:created', handleChange);
+    window.addEventListener('property:changed', handleChange);
+    return () => {
+      window.removeEventListener('property:created', handleChange);
+      window.removeEventListener('property:changed', handleChange);
+    };
   }, [fetchAll]);
 
   const handleRefresh = async (e: CustomEvent<RefresherEventDetail>): Promise<void> => {
@@ -354,10 +633,9 @@ const HomeView: React.FC<{ onAddNew: () => void; onViewAll: () => void }> = ({
               <p className="kpi-label">Total listings</p>
               <p className="kpi-val">{stats?.activeListings ?? 0}</p>
             </div>
-            {/* ✅ NEW: Pipeline value card, formatted in Rupees */}
             <div className="kpi-card">
               <p className="kpi-label">Pipeline value</p>
-              <p className="kpi-val">{formatINR(stats?.pipelineValue)}</p>
+              <p className="kpi-val">{showPrice(stats?.pipelineValue ?? 0)}</p>
             </div>
           </div>
         )}
@@ -398,15 +676,6 @@ const HomeView: React.FC<{ onAddNew: () => void; onViewAll: () => void }> = ({
           )}
         </section>
       </div>
-
-      <IonToast
-        isOpen={!!error}
-        message={error}
-        duration={3000}
-        color="danger"
-        position="top"
-        onDidDismiss={() => setError('')}
-      />
     </div>
   );
 };
@@ -441,9 +710,7 @@ const ListingRow: React.FC<{ property: Property }> = ({ property }) => {
         </p>
       </div>
       <div className="listing-right">
-        {/* ✅ FIXED: Rupee symbol added */}
-        <p className="listing-price">{formatINR(property.price)}</p>
-        {/* ✅ FIXED: class + guaranteed-visible inline style fallback for color */}
+        <p className="listing-price">{showPrice(getPropertyPrice(property))}</p>
         <span
           className={`listing-status ${getStatusClass(property)}`}
           style={getStatusStyle(property)}
@@ -458,19 +725,31 @@ const ListingRow: React.FC<{ property: Property }> = ({ property }) => {
 // ══════════════════════════════════════════════════════════
 // Properties View
 // ══════════════════════════════════════════════════════════
-const PropertiesView: React.FC<{ onAddNew: () => void }> = ({ onAddNew }) => {
+const PropertiesView: React.FC<{
+  onAddNew: () => void;
+  onEdit: (property: Property) => void;
+}> = ({ onAddNew, onEdit }) => {
   const [properties, setProperties] = useState<Property[]>([]);
   const [page, setPage] = useState(1);
   const [loading, setLoading] = useState(true);
   const [hasMore, setHasMore] = useState(true);
   const [error, setError] = useState('');
+  const [deletingId, setDeletingId] = useState<number | null>(null);
 
   const userId = localStorage.getItem('userId');
 
   const fetchProperties = useCallback(
     async (pageToLoad: number, replace: boolean): Promise<void> => {
       if (!userId) {
-        setError('User not logged in');
+        const message = 'Please sign in to view your properties.';
+        setError(message);
+        void Swal.fire({
+          icon: 'error',
+          title: 'Authentication required',
+          text: message,
+          confirmButtonColor: '#185FA5',
+          heightAuto: false,
+        });
         setLoading(false);
         return;
       }
@@ -480,21 +759,26 @@ const PropertiesView: React.FC<{ onAddNew: () => void }> = ({ onAddNew }) => {
         ) as PropertyListResponse;
         if (!result.success) throw new Error(result.message ?? 'API error');
 
-        // ✅ NEW: newest properties first, whether it's a fresh load or an
-        // infinite-scroll page being appended.
+        // Newest properties first (fresh load or appended infinite-scroll page)
         const sortByNewest = (list: Property[]): Property[] =>
           list.slice().sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
 
+        const withPrice = result.data.map((property) => ({
+          ...property,
+          price: getPropertyPrice(property),
+        }));
+
+        // ✅ Country / State / City / Area ke NAMES resolve karo (IDs untouched)
+        const withLocations = await attachLocationNames(withPrice);
+
         setProperties((prev) =>
-          sortByNewest(replace ? result.data : [...prev, ...result.data])
+          sortByNewest(replace ? withLocations : [...prev, ...withLocations])
         );
         setHasMore(result.page * result.pageSize < result.total && result.data.length > 0);
       } catch (err: unknown) {
-        const message =
-          err instanceof Error
-            ? err.message
-            : (err as Record<string, string>)?.error ?? 'Could not load';
+        const message = getErrorMessage(err, 'Could not load properties');
         setError(message);
+        await showRequestError(err, 'Could not load properties');
       } finally {
         setLoading(false);
       }
@@ -503,6 +787,15 @@ const PropertiesView: React.FC<{ onAddNew: () => void }> = ({ onAddNew }) => {
   );
 
   useEffect(() => { void fetchProperties(1, true); }, [fetchProperties]);
+
+  useEffect(() => {
+    const refreshProperties = (): void => {
+      setPage(1);
+      void fetchProperties(1, true);
+    };
+    window.addEventListener('property:changed', refreshProperties);
+    return () => window.removeEventListener('property:changed', refreshProperties);
+  }, [fetchProperties]);
 
   const handleRefresh = async (e: CustomEvent<RefresherEventDetail>): Promise<void> => {
     setPage(1);
@@ -515,6 +808,49 @@ const PropertiesView: React.FC<{ onAddNew: () => void }> = ({ onAddNew }) => {
     setPage(next);
     await fetchProperties(next, false);
     (e.target as HTMLIonInfiniteScrollElement).complete();
+  };
+
+  // ── Edit: confirm first, then navigate ───────────────────
+  const handleEdit = async (property: Property): Promise<void> => {
+    const ok = await confirmAction({
+      icon: 'question',
+      title: 'Edit property?',
+      text: `Do you want to edit "${property.title}"?`,
+      confirmText: 'Yes, edit',
+    });
+    if (!ok) return;
+    onEdit(property);
+  };
+
+  // ── Delete: confirm first, then call API ─────────────────
+  const handleDelete = async (property: Property): Promise<void> => {
+    const ok = await confirmAction({
+      icon: 'warning',
+      title: 'Delete property?',
+      text: `Delete "${property.title}"? This action cannot be undone.`,
+      confirmText: 'Delete',
+      confirmColor: '#b42318',
+    });
+    if (!ok) return;
+
+    setDeletingId(property.id);
+    try {
+      const result = await apiDelete(`/properties/${property.id}`) as { success?: boolean; message?: string } | null;
+      if (result?.success === false) throw new Error(result.message ?? 'Could not delete property');
+      setProperties((current) => current.filter((item) => item.id !== property.id));
+      window.dispatchEvent(new Event('property:changed'));
+      await Swal.fire({
+        icon: 'success',
+        title: 'Property deleted',
+        text: result?.message ?? 'The property was deleted successfully.',
+        confirmButtonColor: '#185FA5',
+        heightAuto: false,
+      });
+    } catch (err: unknown) {
+      await showRequestError(err, 'Could not delete property');
+    } finally {
+      setDeletingId(null);
+    }
   };
 
   return (
@@ -544,28 +880,34 @@ const PropertiesView: React.FC<{ onAddNew: () => void }> = ({ onAddNew }) => {
         </div>
       ) : (
         <div className="props-card-list">
-          {properties.map((p) => <PropertyCard key={p.id} property={p} />)}
+          {properties.map((p) => (
+            <PropertyCard
+              key={p.id}
+              property={p}
+              onEdit={handleEdit}
+              onDelete={handleDelete}
+              deleting={deletingId === p.id}
+            />
+          ))}
         </div>
       )}
 
       <IonInfiniteScroll threshold="100px" disabled={!hasMore} onIonInfinite={loadMore}>
         <IonInfiniteScrollContent loadingSpinner="crescent" loadingText="Loading more…" />
       </IonInfiniteScroll>
-
-      <IonToast
-        isOpen={!!error}
-        message={error}
-        duration={3000}
-        color="danger"
-        position="top"
-        onDidDismiss={() => setError('')}
-      />
     </div>
   );
 };
 
 // ── Property Card ──────────────────────────────────────────
-const PropertyCard: React.FC<{ property: Property }> = ({ property }) => {
+interface PropertyCardProps {
+  property: Property;
+  onEdit: (property: Property) => void | Promise<void>;
+  onDelete: (property: Property) => Promise<void>;
+  deleting: boolean;
+}
+
+const PropertyCard: React.FC<PropertyCardProps> = ({ property, onEdit, onDelete, deleting }) => {
   const [imgError, setImgError] = useState(false);
   const cover = getPropertyImageUrl(property);
   const isForSale = property.propertyFor?.toLowerCase() === 'sale';
@@ -579,7 +921,6 @@ const PropertyCard: React.FC<{ property: Property }> = ({ property }) => {
             alt={property.title}
             className="prop-card-img"
             onError={() => setImgError(true)}
-            onLoad={() => console.log('Image OK:', cover)}
           />
         ) : (
           <img
@@ -594,15 +935,33 @@ const PropertyCard: React.FC<{ property: Property }> = ({ property }) => {
         <span className="prop-type-tag">{property.propertyType}</span>
       </div>
       <div className="prop-card-body">
+        <div className="prop-card-card-actions">
+          <button
+            type="button"
+            aria-label={`Edit ${property.title}`}
+            onClick={() => void onEdit(property)}
+            disabled={deleting}
+          >
+            <IonIcon icon={createOutline} /> Edit
+          </button>
+          <button
+            type="button"
+            className="prop-card-delete-btn"
+            aria-label={`Delete ${property.title}`}
+            onClick={() => void onDelete(property)}
+            disabled={deleting}
+          >
+            <IonIcon icon={trashOutline} /> {deleting ? 'Deleting…' : 'Delete'}
+          </button>
+        </div>
         <p className="prop-card-title">{property.title}</p>
         <p className="prop-card-loc">
           <IonIcon icon={locationOutline} />
-          {[property.area, property.city, property.state].filter(Boolean).join(', ')}
+          {[property.area, property.cityName, property.stateName, property.countryName].filter(Boolean).join(', ')}
         </p>
         <div className="prop-card-footer">
-          {/* ✅ FIXED: Rupee symbol added */}
           <span className="prop-card-price">
-            {formatINR(property.price)}
+            {showPrice(getPropertyPrice(property))}
             <span className="prop-card-pricefor"> / {property.priceFor}</span>
           </span>
           <span className="prop-card-sqft">
@@ -617,7 +976,6 @@ const PropertyCard: React.FC<{ property: Property }> = ({ property }) => {
             {property.baths ? `${property.baths} Baths` : ''}
           </div>
         )}
-        {/* ✅ NEW: Status badge on property cards too, with color fallback */}
         <span
           className={`listing-status ${getStatusClass(property)}`}
           style={getStatusStyle(property)}

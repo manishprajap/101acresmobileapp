@@ -330,6 +330,28 @@
   padding: 3px 9px; border-radius: 20px;
 }
 .prop-card-body { padding: 12px 14px 14px; }
+.prop-card-card-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  margin-bottom: 10px;
+}
+.prop-card-card-actions button {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 6px 10px;
+  border: 1px solid #d9e2ec;
+  border-radius: 8px;
+  background: #fff;
+  color: #185FA5;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+}
+.prop-card-card-actions button ion-icon { font-size: 15px; }
+.prop-card-card-actions button:disabled { opacity: 0.55; cursor: not-allowed; }
+.prop-card-card-actions .prop-card-delete-btn { color: #b42318; border-color: #f1c5c1; }
 .prop-card-title { font-size: 15px; font-weight: 700; color: #1a1a2e; margin: 0 0 4px; }
 .prop-card-loc {
   display: flex; align-items: center; gap: 4px;

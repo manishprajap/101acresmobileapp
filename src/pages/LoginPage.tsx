@@ -10,14 +10,11 @@ import { Capacitor } from '@capacitor/core';
 import './AuthLayout.css';
 import Navbar from '../components/Navbar';
 import BottomNav from '../components/BottomNav';
-import { useHistory } from 'react-router-dom';
 import { apiPost } from '../api';
 
 const LoginPage: React.FC = () => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  const history = useHistory();
-
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
@@ -44,7 +41,7 @@ const LoginPage: React.FC = () => {
       if (data.token) localStorage.setItem('token', data.token);
       localStorage.setItem('userId', String(userId));
 
-      history.replace('/dashboard');
+      window.location.replace('/dashboard');
     } catch (error: any) {
       console.error('Login Error:', error);
       const message = error?.error || error?.message || '';

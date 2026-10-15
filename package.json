@@ -32,7 +32,8 @@
     "react": "19.0.0",
     "react-dom": "19.0.0",
     "react-router": "^5.3.4",
-    "react-router-dom": "^5.3.4"
+    "react-router-dom": "^5.3.4",
+    "sweetalert2": "^11.26.25"
   },
   "devDependencies": {
     "@capacitor/cli": "8.4.0",

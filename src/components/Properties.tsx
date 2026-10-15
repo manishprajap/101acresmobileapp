@@ -17,9 +17,11 @@ const PAGE = 6;
 interface Card {
   id: number | string;
   title: string;
+  amount: number;
   price: number;
   priceFor: string;
   city: string;
+  cityName: string;
   area: string;
   society: string;
   sqft: number;
@@ -94,8 +96,10 @@ const toCard = (p: any): Card => ({
   id: p.id ?? p._id ?? p.propertyId,
   title: p.title || `${p.residentialType || p.propertyType || 'Property'} for ${p.propertyFor || 'Sale'}`,
   price: num(p.price),
+  amount: num(p.amount),
   priceFor: p.priceFor || '',
   city: p.city || '',
+  cityName: p.cityName || '',
   area: p.area || '',
   society: p.society || '',
   sqft: num(p.squareFt ?? p.carpetArea ?? p.builtUpArea),
@@ -238,7 +242,7 @@ const Properties: React.FC<Props> = ({ userLocation, onChangeLocation }) => {
 
       {!loading && visible.map((p) => {
         const open = () => router.push(DETAIL_PATH(p.id));
-        const where = [p.society, p.area, p.city].filter(Boolean).join(', ');
+        const where = [p.society, p.area, p.cityName].filter(Boolean).join(', ');
         return (
           <article className="ls-card" key={p.id}>
             <div className="ls-row">
@@ -255,9 +259,7 @@ const Properties: React.FC<Props> = ({ userLocation, onChangeLocation }) => {
                   {p.priceFor && p.forType === 'rent' && (
                     <em>/{p.priceFor.toLowerCase() === 'yearly' ? 'year' : 'month'}</em>
                   )}
-                  {p.sqft > 0 && p.price > 0 && p.forType === 'sale' && (
-                    <small>₹{Math.round(p.price / p.sqft).toLocaleString('en-IN')}/sq.ft</small>
-                  )}
+                 
                 </div>
                 <h2>{p.title}</h2>
                 {where && <p className="ls-loc"><IonIcon icon={locationOutline} /> {where}</p>}

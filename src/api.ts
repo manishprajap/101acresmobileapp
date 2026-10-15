@@ -35,7 +35,7 @@ const parseNativeResponse = (response: { status: number; data: unknown }) => {
 
 const nativeRequest = async (
   url: string,
-  method: 'GET' | 'POST',
+  method: 'GET' | 'POST' | 'PATCH' | 'DELETE',
   data?: unknown,
 ) => {
   const token = localStorage.getItem('token');
@@ -79,6 +79,75 @@ export const apiPost = async (endpoint: string, data: unknown) => {
     if (response.status === 401) {
       handleUnauthorized();
     }
+    throw json;
+  }
+
+  return json;
+};
+
+export const apiPatch = async (endpoint: string, data: unknown) => {
+  if (Capacitor.isNativePlatform()) {
+    return nativeRequest(`${BASE_URL}${endpoint}`, 'PATCH', data);
+  }
+
+  const controller = new AbortController();
+  const timeout = window.setTimeout(() => controller.abort(), 30_000);
+  const token = localStorage.getItem('token');
+  const response = await fetch(`${BASE_URL}${endpoint}`, {
+    method: 'PATCH',
+    headers: {
+      'Content-Type': 'application/json',
+      'Accept': 'application/json',
+      ...(token ? { 'Authorization': `Bearer ${token}` } : {}),
+    },
+    body: JSON.stringify(data),
+    signal: controller.signal,
+  }).catch((error: unknown) => {
+    window.clearTimeout(timeout);
+    if (controller.signal.aborted) {
+      throw new Error('Property update timed out. Please try again.');
+    }
+    throw error;
+  });
+  const responseText = await response.text().finally(() => window.clearTimeout(timeout));
+  let json: unknown;
+  try {
+    json = responseText ? JSON.parse(responseText) : null;
+  } catch {
+    json = { message: responseText };
+  }
+
+  if (!response.ok) {
+    if (response.status === 401) handleUnauthorized();
+    throw json;
+  }
+
+  return json;
+};
+
+export const apiDelete = async (endpoint: string) => {
+  if (Capacitor.isNativePlatform()) {
+    return nativeRequest(`${BASE_URL}${endpoint}`, 'DELETE');
+  }
+
+  const token = localStorage.getItem('token');
+  const response = await fetch(`${BASE_URL}${endpoint}`, {
+    method: 'DELETE',
+    headers: {
+      'Accept': 'application/json',
+      ...(token ? { 'Authorization': `Bearer ${token}` } : {}),
+    },
+  });
+  const responseText = await response.text();
+  let json: unknown;
+  try {
+    json = responseText ? JSON.parse(responseText) : null;
+  } catch {
+    json = { message: responseText };
+  }
+
+  if (!response.ok) {
+    if (response.status === 401) handleUnauthorized();
     throw json;
   }
 

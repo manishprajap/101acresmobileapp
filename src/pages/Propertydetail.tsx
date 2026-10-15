@@ -40,6 +40,8 @@ interface Detail {
   priceFor: string;
   forType: 'sale' | 'rent';
   kind: string;
+  country: string;
+  state: string;
   city: string;
   area: string;
   society: string;
@@ -59,6 +61,13 @@ interface Detail {
   phone: string;
   images: string[];
   createdAt: number;
+}
+
+interface ResolvedLocation {
+  country: string;
+  state: string;
+  city: string;
+  area: string;
 }
 
 // ── Helpers ────────────────────────────────────────────────
@@ -115,9 +124,124 @@ const toImages = (p: any): string[] => {
   return urls.length ? urls : [DEFAULT_LOGO_URL];
 };
 
-const toDetail = (p: any): Detail => {
-  const city = p.city || '';
-  const area = p.area || p.locality || '';
+// ── Location name helpers ──────────────────────────────────
+const isNumericId = (v: unknown) => /^\d+$/.test(String(v ?? '').trim());
+
+// First value that is a real NAME (non-empty, not a pure number)
+const nameOnly = (...values: unknown[]): string =>
+  String(
+    values.find((v) => v != null && String(v).trim() && !isNumericId(v)) ?? '',
+  ).trim();
+
+// First value that is a numeric ID
+const idOnly = (p: any, idKeys: string[], valueKey: string): string => {
+  const fromKeys = idKeys.map((k) => p?.[k]).find((v) => v != null && isNumericId(v));
+  if (fromKeys != null) return String(fromKeys).trim();
+  return isNumericId(p?.[valueKey]) ? String(p[valueKey]).trim() : '';
+};
+
+type LookupItem = { id: string; name: string };
+
+const parseLookupItems = (response: any): LookupItem[] => {
+  const candidates: any[] = [
+    response,
+    response?.data,
+    response?.result,
+    response?.data?.data,
+    response?.result?.data,
+  ];
+  const rows = candidates.find(Array.isArray) as any[] | undefined;
+  return (rows ?? []).flatMap((row) => {
+    if (!row || typeof row !== 'object') return [];
+    const id = row.id ?? row.value ?? row.countryId ?? row.country_id
+      ?? row.stateId ?? row.state_id ?? row.cityId ?? row.city_id
+      ?? row.areaId ?? row.area_id ?? row.locality_id;
+    const name = row.name ?? row.country_name ?? row.countryName
+      ?? row.state_name ?? row.stateName ?? row.city_name ?? row.cityName
+      ?? row.area_name ?? row.areaName ?? row.locality_name ?? row.localityName
+      ?? row.locality ?? row.label ?? row.title;
+    return id != null && name != null && String(name).trim()
+      ? [{ id: String(id), name: String(name).trim() }]
+      : [];
+  });
+};
+
+// Cache lookups so the same URL is never fetched twice
+const lookupCache = new Map<string, Promise<LookupItem[]>>();
+const lookup = (url: string): Promise<LookupItem[]> => {
+  if (!lookupCache.has(url)) {
+    lookupCache.set(
+      url,
+      apiGet(url)
+        .then(parseLookupItems)
+        .catch(() => {
+          lookupCache.delete(url);
+          return [] as LookupItem[];
+        }),
+    );
+  }
+  return lookupCache.get(url) as Promise<LookupItem[]>;
+};
+
+const sameName = (a: string, b: string) => a.trim().toLowerCase() === b.trim().toLowerCase();
+
+// Resolve country / state / city / area NAMES (uses API names first, lookups as fallback)
+const resolveLocation = async (p: any): Promise<ResolvedLocation> => {
+  let country = nameOnly(p.countryName, p.country_name, p.country);
+  let state = nameOnly(p.stateName, p.state_name, p.state);
+  let city = nameOnly(p.cityName, p.city_name, p.city);
+  let area = nameOnly(
+    p.areaName, p.area_name, p.localityName, p.locality_name, p.locality, p.area,
+  );
+
+  // Sab names pehle se hain -> koi extra API call nahi
+  if (country && state && city && (area || !idOnly(p, ['areaId', 'area_id', 'localityId', 'locality_id'], 'area'))) {
+    return { country, state, city, area };
+  }
+
+  try {
+    // Country
+    const countries = await lookup('/country');
+    let countryId = idOnly(p, ['countryId', 'country_id'], 'country');
+    if (!country && countryId) country = countries.find((c) => c.id === countryId)?.name ?? '';
+    if (!countryId && country) countryId = countries.find((c) => sameName(c.name, country))?.id ?? '';
+
+    // State
+    let stateId = idOnly(p, ['stateId', 'state_id'], 'state');
+    if (countryId && (!state || !stateId)) {
+      const states = await lookup(`/states?countryId=${encodeURIComponent(countryId)}`);
+      if (!state && stateId) state = states.find((s) => s.id === stateId)?.name ?? '';
+      if (!stateId && state) stateId = states.find((s) => sameName(s.name, state))?.id ?? '';
+    }
+
+    // City
+    let cityId = idOnly(p, ['cityId', 'city_id'], 'city');
+    if (stateId && (!city || !cityId)) {
+      const cities = await lookup(`/cities?stateId=${encodeURIComponent(stateId)}`);
+      if (!city && cityId) city = cities.find((c) => c.id === cityId)?.name ?? '';
+      if (!cityId && city) cityId = cities.find((c) => sameName(c.name, city))?.id ?? '';
+    }
+
+    // Area
+    const areaId = idOnly(p, ['areaId', 'area_id', 'localityId', 'locality_id'], 'area');
+    if (!area && areaId && cityId) {
+      const areas = await lookup(`/area?cityId=${encodeURIComponent(cityId)}`);
+      area = areas.find((a) => a.id === areaId)?.name ?? '';
+    }
+  } catch (e) {
+    console.warn('Could not resolve property location names:', e);
+  }
+
+  return { country, state, city, area };
+};
+
+const toDetail = (p: any, loc?: ResolvedLocation): Detail => {
+  const country = loc?.country || nameOnly(p.countryName, p.country_name, p.country);
+  const state = loc?.state || nameOnly(p.stateName, p.state_name, p.state);
+  const city = loc?.city || nameOnly(p.cityName, p.city_name, p.city);
+  const area = loc?.area || nameOnly(
+    p.areaName, p.area_name, p.localityName, p.locality_name, p.locality, p.area,
+  );
   const society = p.society || '';
   return {
     id: p.id ?? p._id ?? p.propertyId,
@@ -126,11 +250,13 @@ const toDetail = (p: any): Detail => {
     priceFor: p.priceFor || '',
     forType: String(p.propertyFor || p.listingFor || '').toLowerCase().includes('rent') ? 'rent' : 'sale',
     kind: p.residentialType || p.propertyType || p.type || '',
+    country,
+    state,
     city,
     area,
     society,
     landmark: p.landmark || '',
-    address: p.address || [society, area, city].filter(Boolean).join(', '),
+    address: p.address || [society, area, city, state, country].filter(Boolean).join(', '),
     sqft: num(p.squareFt ?? p.sqft ?? p.carpetArea ?? p.builtUpArea),
     beds: num(p.beds ?? p.bedrooms),
     baths: num(p.baths ?? p.bathrooms),
@@ -192,6 +318,9 @@ const loadList = (): Promise<any[]> => {
 
 const pidOf = (p: any) => p?.id ?? p?._id ?? p?.propertyId;
 
+// City ka raw key (ID) — similar properties match karne ke liye
+const cityKeyOf = (p: any) => String(p?.cityId ?? p?.city_id ?? p?.city ?? '').trim();
+
 // ── Component ──────────────────────────────────────────────
 const PropertyDetail: React.FC = () => {
   const { id } = useParams<RouteParams>();
@@ -206,6 +335,7 @@ const PropertyDetail: React.FC = () => {
   const [expanded, setExpanded] = useState(false);
   const [showPhone, setShowPhone] = useState(false);
   const [tab, setTab] = useState('overview');
+  const [loc, setLoc] = useState<(ResolvedLocation & { pid: string }) | null>(null);
 
   const contentRef = useRef<HTMLIonContentElement>(null);
   const trackRef = useRef<HTMLDivElement>(null);
@@ -218,6 +348,7 @@ const PropertyDetail: React.FC = () => {
     setExpanded(false);
     setShowPhone(false);
     setTab('overview');
+    setLoc(null);
     contentRef.current?.scrollToTop(0);
 
     const passed = location.state?.property;
@@ -242,6 +373,17 @@ const PropertyDetail: React.FC = () => {
     return () => { cancelled = true; };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [id]);
+
+  // Country / State / City / Area NAMES resolve karo (names missing ho toh lookup se)
+  useEffect(() => {
+    if (!raw) return;
+    let cancelled = false;
+    const pid = String(pidOf(raw));
+    resolveLocation(raw).then((r) => {
+      if (!cancelled) setLoc({ pid, ...r });
+    });
+    return () => { cancelled = true; };
+  }, [raw]);
 
   const onTrackScroll = () => {
     const t = trackRef.current;
@@ -293,16 +435,19 @@ const PropertyDetail: React.FC = () => {
     );
   }
 
-  const p = toDetail(raw);
-  const where = [p.society, p.area, p.city].filter(Boolean).join(', ');
+  const activeLoc = loc && loc.pid === String(pidOf(raw)) ? loc : undefined;
+  const p = toDetail(raw, activeLoc);
+  const where = [p.society, p.area, p.city, p.state, p.country].filter(Boolean).join(', ');
   const perSqft = p.sqft > 0 && p.price > 0 ? Math.round(p.price / p.sqft) : 0;
   const rentUnit = p.priceFor.toLowerCase() === 'yearly' ? 'year' : 'month';
   const waPhone = p.phone.replace(/[^\d]/g, '');
   const ago = postedAgo(p.createdAt);
 
+  // Similar: same city (raw city ID se compare, name se nahi)
+  const myCityKey = cityKeyOf(raw);
   const similar = allList
     .filter((x) => String(pidOf(x)) !== String(p.id))
-    .filter((x) => !p.city || String(x.city || '') === String(p.city))
+    .filter((x) => !myCityKey || cityKeyOf(x) === myCityKey)
     .slice(0, 8);
 
   // Overview grid (icon + label + value)
@@ -330,6 +475,8 @@ const PropertyDetail: React.FC = () => {
     ['Society / Project', p.society],
     ['Locality', p.area],
     ['City', p.city],
+    ['State', p.state],
+    ['Country', p.country],
     ['Landmark', p.landmark],
   ] as [string, string][]).filter(([, v]) => v);
 
@@ -591,7 +738,7 @@ const PropertyDetail: React.FC = () => {
                       {s.forType === 'rent' && s.price > 0 ? '/mo' : ''}
                     </b>
                     <span className="pdx-sim-title">{s.title}</span>
-                    <small>{[s.area, s.city].filter(Boolean).join(', ')}</small>
+                    <small>{[s.area, s.city, s.state].filter(Boolean).join(', ')}</small>
                   </div>
                 );
               })}

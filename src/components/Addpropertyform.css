@@ -23,6 +23,8 @@
 }
 .apf-root *, .apf-root *::before, .apf-root *::after { box-sizing: border-box; }
 
+body > .swal2-container { z-index: 30000 !important; }
+
 /* progress */
 .apf-progress { flex: none; height: 4px; background: #dfe4ec; }
 .apf-progress > div { height: 100%; background: var(--blue); border-radius: 0 4px 4px 0; transition: width 0.25s; }
@@ -609,7 +611,56 @@
     padding-right: 12px;
     padding-left: 12px;
   }
+  /* Append to Addpropertyform.css */
 
+/* Red star for required fields */
+.apf-req {
+  color: #dc2626;
+  font-weight: 700;
+  margin-left: 3px;
+}
+
+.apf-required-note {
+  margin: 0 0 12px;
+  font-size: 12px;
+  color: #6b7280;
+}
+
+/* SweetAlert must sit above the full-screen form */
+.swal2-container,
+.app-swal-container {
+  z-index: 2147483647 !important;
+}
+/* Append to Addpropertyform.css */
+
+/* Red star for required fields */
+.apf-req {
+  color: #dc2626;
+  font-weight: 700;
+  margin-left: 3px;
+}
+
+.apf-required-note {
+  margin: 0 0 12px;
+  font-size: 12px;
+  color: #6b7280;
+}
+
+/* SweetAlert must sit above the full-screen form */
+.swal2-container,
+.app-swal-container {
+  z-index: 2147483647 !important;
+}
+
+/* Edit mode: shown while the saved property is being loaded */
+.apf-loading {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0 0 12px;
+  font-size: 13px;
+  color: #374151;
+}
   .apf-chip {
     min-height: 40px;
     padding: 8px 11px;

@@ -1,5 +1,5 @@
 import React from 'react';
-import { Route, useHistory } from 'react-router-dom';
+import { Route, useHistory, useLocation } from 'react-router-dom';
 import { IonApp, IonPage, IonRouterOutlet, setupIonicReact } from '@ionic/react';
 import { IonReactRouter } from '@ionic/react-router';
 import { useEffect, useState } from 'react';
@@ -35,25 +35,30 @@ import ChangePasswordPage from './components/Changepasswordpage';
 import ProfilePage from './components/Profilepage';
 import Listings from './pages/Listings';
 import AddPropertyForm from './components/Addpropertyform';
+import type { Property } from './pages/Dashboard';
 
 setupIonicReact();
 
 const AddPropertyRoute: React.FC = () => {
   const history = useHistory();
+  const location = useLocation<{ property?: Property }>();
+  const property = location.state?.property;
   const userId = localStorage.getItem('userId') || undefined;
 
   return (
     <IonPage>
       <AddPropertyForm
         userId={userId}
+        property={property}
+        propertyId={property?.id}
         onExit={() => {
           if (history.length > 1) {
             history.goBack();
           } else {
-            history.replace(userId ? '/dashboard' : '/');
+            history.replace(userId ?  '/' : '/login');
           }
         }}
-        onSuccess={() => history.replace(userId ? '/dashboard' : '/')}
+        onSuccess={() => history.replace(property ? '/dashboard' : userId ? '/' : '/login')}
       />
       
     </IonPage>
