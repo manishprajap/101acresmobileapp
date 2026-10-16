@@ -282,7 +282,7 @@ const Properties: React.FC<Props> = ({ userLocation, onChangeLocation }) => {
                 <span className="ls-avatar">{(p.owner || 'O').charAt(0).toUpperCase()}</span>
                 <div>
                   <b>{p.owner || 'Owner'}</b>
-                  <small><IonIcon icon={shieldCheckmark} /> Owner</small>
+                  <small><IonIcon icon={shieldCheckmark} /> {p.ownership || 'Owner'}</small>
                 </div>
               </div>
               <div className="ls-actions">
