@@ -722,35 +722,61 @@ const hydrateForm = (property: Record<string, unknown>): FormState => {
     }
   });
 
-  /* ---------- Looking to (Sale / Rent / PG) ---------- */
-  const propertyFor = String(property.propertyFor ?? property.property_for ?? '').toLowerCase();
-  if (readProp(property, 'lookingTo') == null) {
-    hydrated.lookingTo = propertyFor.includes('guest')
-      ? 'Paying Guest'
-      : propertyFor.includes('rent') || propertyFor.includes('lease')
-        ? 'Rent / Lease'
-        : 'Sale';
-  }
+  /* ---------- Looking to (Sale / Rent / PG) ----------
+     Never trust a single field: the saved value can be empty, lower case
+     ("rent"), "Rent / Lease", or live under another key (property_For).
+     Try every source in order and keep the first one that is recognised. */
+  const toLookingTo = (raw: unknown): string => {
+    const text = String(raw ?? '').trim().toLowerCase();
+    if (!text) return '';
+    if (text.includes('guest') || text === 'pg' || text.startsWith('pg ')) return 'Paying Guest';
+    if (text.includes('rent') || text.includes('lease')) return 'Rent / Lease';
+    if (text.includes('sale') || text.includes('sell') || text === 'buy') return 'Sale';
+    return '';
+  };
 
-  /* ---------- Property type (Residential / Commercial + sub type) ---------- */
+  const titleText = String(property.title ?? '');
+  const lookingToSources: unknown[] = [
+    readProp(property, 'lookingTo'),
+    property.propertyFor,
+    property.property_for,
+    property.property_For,
+    property.propertyfor,
+    property.priceFor === 'Monthly' || property.price_for === 'Monthly' ? 'rent' : '',
+    / for rent/i.test(titleText) || /\brent\b/i.test(titleText) || /lease/i.test(titleText)
+      ? 'rent'
+      : / for sale/i.test(titleText) || /\bsale\b/i.test(titleText)
+        ? 'sale'
+        : '',
+  ];
+  hydrated.lookingTo =
+    lookingToSources.map(toLookingTo).find((value) => value !== '') || 'Sale';
+
+  /* ---------- Property type (Residential / Commercial + sub type) ----------
+     Some rows keep the category ("Residential") in propertyType and the sub type
+     ("Flat / Apartment") in residentialType, others have them the other way
+     round. Look at both values (and the title) and sort them out. */
   const allTypes = [...RES_TYPES, ...COM_TYPES];
-  const titleType = String(property.title ?? '').split(' for ')[0].trim();
+  const titleType = titleText.split(' for ')[0].trim();
+  const typeCandidates = [
+    hydrated.residentialType,
+    hydrated.propertyType,
+    String(property.propertyType ?? property.property_type ?? '').trim(),
+    String(property.residentialType ?? property.residential_type ?? '').trim(),
+    titleType,
+  ].map((value) => String(value ?? '').trim());
 
   if (hydrated.lookingTo === 'Paying Guest') {
     hydrated.propertyType = 'Residential';
     hydrated.residentialType = PG_TYPE;
   } else {
-    if (!hydrated.residentialType) {
-      const rawType = String(property.propertyType ?? '').trim();
-      if (allTypes.includes(rawType)) hydrated.residentialType = rawType;
-      else if (allTypes.includes(titleType)) hydrated.residentialType = titleType;
-    }
-    if (!KINDS.includes(hydrated.propertyType)) {
-      hydrated.propertyType =
-        COM_TYPES.includes(hydrated.residentialType) && !RES_TYPES.includes(hydrated.residentialType)
-          ? 'Commercial'
-          : 'Residential';
-    }
+    const subType = typeCandidates.find((value) => allTypes.includes(value)) ?? '';
+    const kind = typeCandidates.find((value) => KINDS.includes(value)) ?? '';
+
+    hydrated.residentialType = subType;
+    hydrated.propertyType =
+      kind ||
+      (COM_TYPES.includes(subType) && !RES_TYPES.includes(subType) ? 'Commercial' : 'Residential');
   }
 
   /* ---------- Location display names ---------- */
@@ -806,6 +832,96 @@ const hydrateForm = (property: Record<string, unknown>): FormState => {
   /* ---------- Dates must be yyyy-mm-dd for <input type="date"> ---------- */
   if (/^\d{4}-\d{2}-\d{2}T/.test(hydrated.availableFrom)) {
     hydrated.availableFrom = hydrated.availableFrom.slice(0, 10);
+  }
+
+  /* ---------- Older rows: recover what the saved description still says ----------
+     Properties saved before the complete form was stored (form_data) only kept
+     part of the data in table columns, e.g. the furnishing counts were lost.
+     The auto-generated description lists those values, so read them back.
+     Only EMPTY fields are filled, real saved data is never overwritten. */
+  const descText = String(hydrated.description ?? '');
+  if (descText) {
+    const lower = descText.toLowerCase();
+
+    const sentence = (label: string): string =>
+      new RegExp(`${label}:\\s*([^.]*)\\.`, 'i').exec(descText)?.[1] ?? '';
+
+    const pickOptions = (text: string, options: string[]): string[] =>
+      text
+        .split(/,\s*|\s+and\s+/i)
+        .map((part) =>
+          options.find((option) => option.toLowerCase() === part.trim().toLowerCase()),
+        )
+        .filter((option): option is string => Boolean(option));
+
+    // "The property is furnished, including 1 light, 1 fans and 1 geyser."
+    if (
+      (hydrated.furnishing === 'Furnished' || hydrated.furnishing === 'Semi-Furnished') &&
+      Object.keys(hydrated.furnishingItems).length === 0
+    ) {
+      const part = /including ([^.]*)\./i.exec(descText)?.[1] ?? '';
+      const items: Record<string, number> = {};
+      COUNTED_ITEMS.forEach((name) => {
+        const match = new RegExp(`(\\d+)\\s+${name.toLowerCase()}\\b`, 'i').exec(part);
+        if (match) items[name] = Number(match[1]);
+      });
+      if (Object.keys(items).length > 0) hydrated.furnishingItems = items;
+    }
+
+    const fillList = (
+      key: 'amenities' | 'features' | 'locationAdvantages' | 'preferredTenants',
+      label: string,
+      options: string[],
+    ): void => {
+      if (hydrated[key].length > 0) return;
+      const found = pickOptions(sentence(label), options);
+      if (found.length > 0) hydrated[key] = found;
+    };
+
+    fillList('amenities', 'Amenities', AMENITIES);
+    fillList('features', 'Property features', FEATURES);
+    fillList('locationAdvantages', 'Location advantages', LOCATION_ADV);
+    fillList('preferredTenants', 'Preferred tenants', TENANTS);
+
+    if (!hydrated.maintenanceCharge) {
+      const match = /Maintenance charges are ₹([\d,]+)(?:\s*\(([^)]+)\))?/i.exec(descText);
+      if (match) {
+        hydrated.maintenanceCharge = match[1].replace(/,/g, '');
+        const period = MAINT_PERIOD.find(
+          (item) => item.toLowerCase() === (match[2] ?? '').trim().toLowerCase(),
+        );
+        if (period && !hydrated.maintenancePeriod) hydrated.maintenancePeriod = period;
+      }
+    }
+
+    if (!hydrated.ageOfProperty) {
+      hydrated.ageOfProperty = AGE.find((age) => lower.includes(`is ${age} old`)) ?? '';
+    }
+
+    if (!hydrated.possessionBy) {
+      hydrated.possessionBy =
+        POSSESSION.find((item) => lower.includes(`with possession ${item.toLowerCase()}`)) ?? '';
+    }
+
+    if (!hydrated.reraId) {
+      hydrated.reraId = /RERA registration number:\s*([^.]+)\./i.exec(descText)?.[1]?.trim() ?? '';
+    }
+
+    if (!hydrated.securityDepositType) {
+      const months = /Security deposit:\s*(\d+)\s*month/i.exec(descText);
+      const fixed = /Security deposit:\s*₹([\d,]+)/i.exec(descText);
+      if (months) {
+        hydrated.securityDepositType = 'Multiple of rent';
+        hydrated.securityDeposit = months[1];
+      } else if (fixed) {
+        hydrated.securityDepositType = 'Fixed';
+        hydrated.securityDeposit = fixed[1].replace(/,/g, '');
+      }
+    }
+
+    if (!hydrated.availableFrom) {
+      hydrated.availableFrom = /Available from (\d{4}-\d{2}-\d{2})/i.exec(descText)?.[1] ?? '';
+    }
   }
 
   return hydrated;
