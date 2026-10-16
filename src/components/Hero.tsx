@@ -16,9 +16,9 @@ interface LocationResult {
   name: string;
   city: string;
   cityId?: number;
-  type: string;        // 'City' | 'Locality' | 'Project' | 'New Launch Projects'
-  area?: string;       // sirf property/project results ke liye (subtitle)
-  propertyId?: number; // sirf property/project results ke liye
+  type: string;        
+  area?: string;      
+  propertyId?: number; 
 }
 
 // Raw shape jo property search endpoint se aata hai
