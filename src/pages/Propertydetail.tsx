@@ -608,7 +608,7 @@ const PropertyDetail: React.FC = () => {
           )}
 
           <div className="pdx-posted">
-            <span><IonIcon icon={shieldCheckmark} /> Posted by Owner</span>
+            <span><IonIcon icon={shieldCheckmark} /> Posted by {p.ownership || 'Owner'}</span>
             {ago && <span><IonIcon icon={timeOutline} /> {ago}</span>}
           </div>
         </section>
@@ -698,7 +698,7 @@ const PropertyDetail: React.FC = () => {
             <span className="pdx-avatar">{(p.owner || 'O').charAt(0).toUpperCase()}</span>
             <div className="pdx-owner-info">
               <b>{p.owner || 'Owner'}</b>
-              <small><IonIcon icon={shieldCheckmark} /> Owner</small>
+              <small><IonIcon icon={shieldCheckmark} /> {p.ownership || 'Owner'}</small>
             </div>
             {p.phone && (
               <span className="pdx-phone">{showPhone ? p.phone : maskPhone(p.phone)}</span>
