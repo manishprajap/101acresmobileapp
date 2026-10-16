@@ -1,13 +1,13 @@
 {
   "project_info": {
-    "project_number": "787128577402",
-    "project_id": "acres-dd9dc",
-    "storage_bucket": "acres-dd9dc.firebasestorage.app"
+    "project_number": "274450699111",
+    "project_id": "acres-50eac",
+    "storage_bucket": "acres-50eac.firebasestorage.app"
   },
   "client": [
     {
       "client_info": {
-        "mobilesdk_app_id": "1:787128577402:android:7ed3a31d06a97009eafac3",
+        "mobilesdk_app_id": "1:274450699111:android:dc41c5de341b7b460b55c2",
         "android_client_info": {
           "package_name": "io.ionic.starter"
         }
@@ -15,14 +15,14 @@
       "oauth_client": [],
       "api_key": [
         {
-          "current_key": "AIzaSyBI5NIUOW3q-MNHwve0oiVyYlytde3sYcE"
+          "current_key": "AIzaSyA5lG7NxFfUZ7wmihR_kbpkSv6WLoHBNJw"
         }
       ],
       "services": {
         "appinvite_service": {
           "other_platform_oauth_client": []
         }
-      }
+      }  
     }
   ],
   "configuration_version": "1"

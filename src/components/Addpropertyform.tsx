@@ -537,7 +537,7 @@ const POSSESSION = [
   ...[0, 1, 2, 3, 4].map((i) => `By ${YEAR + i}`),
 ];
 
-const OWNERSHIP = ['Freehold', 'Leasehold', 'Co-operative society', 'Power of Attorney'];
+const OWNERSHIP = ['Owner','Dealer','Freehold', 'Leasehold', 'Co-operative society', 'Power of Attorney'];
 const MAINT_PERIOD = ['Monthly', 'Quarterly', 'Yearly', 'One time'];
 const DEPOSIT_TYPES = ['None', 'Fixed', 'Multiple of rent'];
 const TENANTS = ['Family', 'Bachelor Men', 'Bachelor Women', 'Company'];
@@ -663,14 +663,36 @@ const readProp = (p: Record<string, unknown>, key: string): unknown => {
 
 /** Pulls a single property object out of whatever shape the API responds with. */
 const unwrapProperty = (res: unknown): Record<string, unknown> | null => {
-  const r = res as Record<string, any> | null | undefined; // eslint-disable-line @typescript-eslint/no-explicit-any
-  const candidates = [r?.data?.property, r?.property, r?.data?.data, r?.data, r?.result, r];
-  const isObj = (x: unknown): x is Record<string, unknown> =>
-    !!x && typeof x === 'object' && !Array.isArray(x) && ('id' in (x as object) || 'title' in (x as object));
-  const found = candidates.find(isObj);
-  if (found) return found;
-  const arr = candidates.find(Array.isArray) as unknown[] | undefined;
-  return (arr?.[0] as Record<string, unknown>) ?? null;
+  const isRecord = (value: unknown): value is Record<string, unknown> =>
+    !!value && typeof value === 'object' && !Array.isArray(value);
+  const isProperty = (value: unknown): value is Record<string, unknown> =>
+    isRecord(value) &&
+    ['id', 'propertyId', 'property_id', 'title', 'propertyFor', 'property_for', 'propertyType', 'property_type']
+      .some((key) => key in value);
+  const root = isRecord(res) ? res : null;
+  const data = isRecord(root?.data) ? root.data : null;
+  const result = isRecord(root?.result) ? root.result : null;
+  const nestedData = isRecord(data?.data) ? data.data : null;
+  const candidates: unknown[] = [
+    data?.property,
+    result?.property,
+    nestedData?.property,
+    data?.data,
+    data,
+    result?.data,
+    result,
+    root?.property,
+    root,
+  ];
+
+  for (const candidate of candidates) {
+    if (isProperty(candidate)) return candidate;
+    if (Array.isArray(candidate)) {
+      const property = candidate.find(isProperty);
+      if (property) return property;
+    }
+  }
+  return null;
 };
 
 const hydrateForm = (property: Record<string, unknown>): FormState => {
@@ -683,11 +705,18 @@ const hydrateForm = (property: Record<string, unknown>): FormState => {
   };
 
   const listValue = (value: unknown): string[] => {
-    if (Array.isArray(value)) return value.map(String);
+    const toString = (item: unknown): string => {
+      if (item && typeof item === 'object') {
+        const entry = item as Record<string, unknown>;
+        return String(entry.name ?? entry.value ?? entry.label ?? '').trim();
+      }
+      return String(item).trim();
+    };
+    if (Array.isArray(value)) return value.map(toString).filter(Boolean);
     if (typeof value !== 'string' || !value.trim()) return [];
     try {
       const parsed: unknown = JSON.parse(value);
-      if (Array.isArray(parsed)) return parsed.map(String);
+      if (Array.isArray(parsed)) return parsed.map(toString).filter(Boolean);
     } catch {
       // API list fields may be comma-separated strings.
     }
@@ -723,18 +752,31 @@ const hydrateForm = (property: Record<string, unknown>): FormState => {
   });
 
   /* ---------- Looking to (Sale / Rent / PG) ---------- */
-  const propertyFor = String(property.propertyFor ?? property.property_for ?? '').toLowerCase();
-  if (readProp(property, 'lookingTo') == null) {
-    hydrated.lookingTo = propertyFor.includes('guest')
-      ? 'Paying Guest'
-      : propertyFor.includes('rent') || propertyFor.includes('lease')
-        ? 'Rent / Lease'
-        : 'Sale';
+  const rawLookingTo = [
+    readProp(property, 'lookingTo'),
+    readProp(property, 'propertyFor'),
+    readProp(property, 'listingFor'),
+  ].find((value) => value != null && String(value).trim());
+  const lookingTo = String(rawLookingTo ?? '').trim().toLowerCase();
+  const propertyTitle = String(readProp(property, 'title') ?? '').trim();
+  const isPayingGuest = /paying guest|\bpg\b|co-living/i.test(lookingTo)
+    || /paying guest|\bpg\b|co-living/i.test(propertyTitle)
+    || String(readProp(property, 'residentialType') ?? '').trim().toLowerCase() === PG_TYPE.toLowerCase();
+  const titleLookingTo = propertyTitle.match(/\bfor\s+(rent|lease|sale)\b/i)?.[1]?.toLowerCase();
+  if (isPayingGuest) {
+    hydrated.lookingTo = 'Paying Guest';
+  } else if (lookingTo || titleLookingTo) {
+    const savedLookingTo = lookingTo || titleLookingTo || '';
+    hydrated.lookingTo = savedLookingTo.includes('rent') || savedLookingTo.includes('lease')
+      ? 'Rent / Lease'
+      : 'Sale';
+  } else {
+    hydrated.lookingTo = 'Sale';
   }
 
   /* ---------- Property type (Residential / Commercial + sub type) ---------- */
   const allTypes = [...RES_TYPES, ...COM_TYPES];
-  const titleType = String(property.title ?? '').split(' for ')[0].trim();
+  const titleType = propertyTitle.split(/\s+for\s+/i)[0].trim();
 
   if (hydrated.lookingTo === 'Paying Guest') {
     hydrated.propertyType = 'Residential';
@@ -752,6 +794,49 @@ const hydrateForm = (property: Record<string, unknown>): FormState => {
           : 'Residential';
     }
   }
+
+  const choiceOptions: Partial<Record<keyof FormState, string[]>> = {
+    lookingTo: ['Sale', 'Rent / Lease', 'Paying Guest'],
+    propertyType: KINDS,
+    residentialType: [...allTypes, PG_TYPE],
+    areaUnit: AREA_UNITS,
+    availability: AVAILABILITY,
+    ageOfProperty: AGE,
+    possessionBy: POSSESSION,
+    maintenancePeriod: MAINT_PERIOD,
+    securityDepositType: DEPOSIT_TYPES,
+    preferredTenants: TENANTS,
+    pgSuitableFor: PG_FOR,
+    pgSharing: PG_SHARING,
+    pgFoodIncluded: PG_FOOD,
+    pgNoticePeriod: PG_NOTICE,
+    locatedInside: LOCATED_INSIDE,
+    zoneType: ZONES,
+    washrooms: WASHROOMS,
+    pantry: PANTRY,
+    otherRooms: OTHER_ROOMS,
+    furnishing: FURNISHING,
+    ownership: OWNERSHIP,
+    features: FEATURES,
+    amenities: AMENITIES,
+    locationAdvantages: LOCATION_ADV,
+    openSides: OPEN_SIDES,
+    overlooking: OVERLOOKING,
+    powerBackup: POWER,
+    facing: FACING,
+    flooring: FLOORING,
+    roadWidthUnit: ['Feet', 'Meter'],
+  };
+  (Object.entries(choiceOptions) as [keyof FormState, string[]][]).forEach(([key, options]) => {
+    const value = hydrated[key];
+    const normalize = (item: string): string =>
+      options.find((option) => option.toLowerCase() === item.trim().toLowerCase()) ?? item.trim();
+    if (Array.isArray(value)) {
+      setHydratedValue(key, value.map(normalize) as FormState[typeof key]);
+    } else if (typeof value === 'string' && value) {
+      setHydratedValue(key, normalize(value) as FormState[typeof key]);
+    }
+  });
 
   /* ---------- Location display names ---------- */
   hydrated.country = getLocationName(property.countryName, property.country);
@@ -1700,7 +1785,12 @@ const AddPropertyForm: React.FC<Props> = ({
         const res = await apiGet(`/properties/${propertyId}`);
         const full = unwrapProperty(res);
         if (!cancelled && full) {
-          const merged = { ...(property ?? {}), ...full };
+          const merged = { ...(property ?? {}) };
+          Object.entries(full).forEach(([key, value]) => {
+            if (value !== undefined && value !== null && !(typeof value === 'string' && !value.trim())) {
+              merged[key] = value;
+            }
+          });
           setSource(merged);
           setForm(hydrateForm(merged));
         }
