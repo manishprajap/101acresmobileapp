@@ -667,3 +667,21 @@ body > .swal2-container { z-index: 30000 !important; }
     font-size: 13px;
   }
 }
+
+.apf-autofill {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 10px;
+  padding: 8px 14px;
+  border: 1px solid #185fa5;
+  border-radius: 999px;
+  background: #eaf3fc;
+  color: #185fa5;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+}
+.apf-autofill:active {
+  background: #d6e8f8;
+}

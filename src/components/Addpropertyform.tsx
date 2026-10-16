@@ -10,6 +10,7 @@ import {
   addOutline,
   locationOutline,
   searchOutline,
+  sparklesOutline,
 } from 'ionicons/icons';
 import SwalBase from 'sweetalert2';
 
@@ -776,10 +777,7 @@ const hydrateForm = (property: Record<string, unknown>): FormState => {
     property.expectedPrice,
     property.expected_price,
   ].filter((value) => value !== undefined && value !== null && String(value).trim() !== '');
-  const priceValue = priceValues.find((value) => {
-    
-  }) ?? priceValues[0];
-  if (priceValue !== undefined) hydrated.price = String(priceValue);
+  if (priceValues.length > 0) hydrated.price = String(priceValues[0]);
 
   if (!hydrated.formattedAddress && property.googleLocation) {
     hydrated.formattedAddress = String(property.googleLocation);
@@ -1001,6 +999,194 @@ const cleanForm = (f: FormState): FormState => {
   }
 
   return o;
+};
+
+/* =========================================================
+   AUTO DESCRIPTION
+   Builds a professional description from everything the user
+   has already filled in on the previous steps.
+========================================================= */
+
+const joinList = (items: string[]): string => {
+  const list = items.map((item) => item.trim()).filter(Boolean);
+  if (list.length <= 1) return list.join('');
+  return `${list.slice(0, -1).join(', ')} and ${list[list.length - 1]}`;
+};
+
+const formatMoney = (value: string): string => {
+  const n = Number(String(value).replace(/,/g, ''));
+  return Number.isFinite(n) && n > 0 ? `₹${n.toLocaleString('en-IN')}` : '';
+};
+
+const buildDescription = (raw: FormState): string => {
+  const f = cleanForm(raw);
+  const c = categorize(f);
+  const unit = f.areaUnit;
+  const place = [f.society, f.landmark, f.area, f.city].filter(Boolean).join(', ');
+  const inPlace = place ? ` in ${place}` : '';
+  const lines: string[] = [];
+
+  /* ---------- Intro ---------- */
+  if (c.isPG) {
+    const guests = f.pgSuitableFor && f.pgSuitableFor !== 'Any' ? ` for ${f.pgSuitableFor.toLowerCase()}` : '';
+    lines.push(`A comfortable and well-maintained PG accommodation${guests} is available${inPlace}.`);
+  } else {
+    const type = f.residentialType || 'property';
+    lines.push(`A well-located ${type.toLowerCase()} is available for ${c.isSale ? 'sale' : 'rent'}${inPlace}.`);
+  }
+
+  /* ---------- Rooms ---------- */
+  if (c.hasRooms) {
+    const rooms: string[] = [];
+    if (f.beds) rooms.push(`${f.beds} ${f.beds === '1' ? 'bedroom' : 'bedrooms'}`);
+    if (f.baths) rooms.push(`${f.baths} ${f.baths === '1' ? 'bathroom' : 'bathrooms'}`);
+    if (f.balconies && f.balconies !== '0') {
+      rooms.push(`${f.balconies} ${f.balconies === '1' ? 'balcony' : 'balconies'}`);
+    }
+    if (rooms.length) lines.push(`The home offers ${joinList(rooms)}${f.duplex ? ' in a duplex layout' : ''}.`);
+    if (f.otherRooms.length) {
+      lines.push(`Additional rooms include ${joinList(f.otherRooms.map((r) => r.toLowerCase()))}.`);
+    }
+  }
+
+  /* ---------- PG details ---------- */
+  if (c.isPG) {
+    const pg: string[] = [];
+    if (f.pgSharing.length) pg.push(`${joinList(f.pgSharing.map((s) => s.toLowerCase()))} sharing options`);
+    if (f.pgTotalBeds) pg.push(`${f.pgTotalBeds} beds in total`);
+    if (f.pgFoodIncluded === 'Yes') pg.push('meals included');
+    if (pg.length) lines.push(`The PG provides ${joinList(pg)}.`);
+    if (f.pgNoticePeriod && f.pgNoticePeriod !== 'None') {
+      lines.push(`A notice period of ${f.pgNoticePeriod} applies.`);
+    }
+  }
+
+  /* ---------- Area ---------- */
+  if (c.isPlot) {
+    if (f.plotArea) {
+      const dims = f.plotLength && f.plotBreadth ? ` (${f.plotLength} x ${f.plotBreadth})` : '';
+      lines.push(`The plot spans ${f.plotArea} ${unit}${dims}.`);
+    }
+    const extra: string[] = [];
+    if (f.floorsAllowed) extra.push(`${f.floorsAllowed} floors permitted`);
+    if (f.boundaryWall === 'Yes') extra.push('a boundary wall');
+    if (f.constructionDone === 'Yes') extra.push('existing construction');
+    if (extra.length) lines.push(`It comes with ${joinList(extra)}.`);
+  } else if (c.hasBuilding) {
+    const areas: string[] = [];
+    if (f.carpetArea) areas.push(`a carpet area of ${f.carpetArea} ${unit}`);
+    if (f.builtUpArea) areas.push(`a built-up area of ${f.builtUpArea} ${unit}`);
+    if (f.superBuiltUpArea) areas.push(`a super built-up area of ${f.superBuiltUpArea} ${unit}`);
+    if (areas.length) lines.push(`The property has ${joinList(areas)}.`);
+  }
+
+  /* ---------- Floor ---------- */
+  if (c.hasBuilding && f.floorNo) {
+    const floorText = /^\d+$/.test(f.floorNo) ? `floor ${f.floorNo}` : `the ${f.floorNo.toLowerCase()} floor`;
+    lines.push(
+      `It is situated on ${floorText}${f.totalFloors ? ` of a ${f.totalFloors}-floor building` : ''}.`,
+    );
+  } else if (c.hasBuilding && f.totalFloors) {
+    lines.push(`The building has ${f.totalFloors} floors in total.`);
+  }
+
+  /* ---------- Availability ---------- */
+  if (f.availability === 'Ready to move') {
+    lines.push(
+      `The property is ready to move in${f.ageOfProperty ? ` and is ${f.ageOfProperty} old` : ''}.`,
+    );
+  } else if (f.availability === 'Under construction') {
+    lines.push(
+      `The property is under construction${f.possessionBy ? `, with possession ${f.possessionBy.toLowerCase()}` : ''}.`,
+    );
+  }
+  if (f.reraId) lines.push(`RERA registration number: ${f.reraId}.`);
+
+  /* ---------- Commercial ---------- */
+  if (c.isCommercial) {
+    const com: string[] = [];
+    if (f.locatedInside) com.push(`located inside a ${f.locatedInside.toLowerCase()}`);
+    if (f.zoneType) com.push(`${f.zoneType.toLowerCase()} zone`);
+    if (f.washrooms) com.push(f.washrooms === 'No washroom' ? 'no washroom' : `${f.washrooms.toLowerCase()} washrooms`);
+    if (f.pantry) com.push(f.pantry === 'No pantry' ? 'no pantry' : `${f.pantry.toLowerCase()} pantry`);
+    if (f.minSeats || f.maxSeats) {
+      com.push(`seating for ${[f.minSeats, f.maxSeats].filter(Boolean).join(' to ')}`);
+    }
+    if (f.cabins) com.push(`${f.cabins} cabins`);
+    if (f.meetingRooms) com.push(`${f.meetingRooms} meeting rooms`);
+    if (com.length) lines.push(`Key commercial details: ${joinList(com)}.`);
+  }
+
+  /* ---------- Furnishing ---------- */
+  if (f.furnishing) {
+    const items = Object.entries(f.furnishingItems)
+      .filter(([, count]) => count > 0)
+      .map(([name, count]) => `${count} ${name.toLowerCase()}`);
+    lines.push(
+      `The property is ${f.furnishing.toLowerCase()}${items.length ? `, including ${joinList(items)}` : ''}.`,
+    );
+  }
+
+  /* ---------- Parking ---------- */
+  const parking: string[] = [];
+  if (f.coveredParking > 0) parking.push(`${f.coveredParking} covered`);
+  if (f.openParking > 0) parking.push(`${f.openParking} open`);
+  if (parking.length) lines.push(`Parking is available with ${joinList(parking)} slot(s).`);
+
+  /* ---------- Other attributes ---------- */
+  const attrs: string[] = [];
+  if (f.facing) attrs.push(`${f.facing.toLowerCase()}-facing`);
+  if (f.ownership) attrs.push(`${f.ownership.toLowerCase()} ownership`);
+  if (f.openSides) attrs.push(`${f.openSides} open sides`);
+  if (f.flooring) attrs.push(`${f.flooring.toLowerCase()} flooring`);
+  if (f.powerBackup && f.powerBackup !== 'None') attrs.push(`${f.powerBackup.toLowerCase()} power backup`);
+  if (f.roadWidth) attrs.push(`a ${f.roadWidth} ${f.roadWidthUnit.toLowerCase()} wide road`);
+  if (f.overlooking.length) attrs.push(`views of ${joinList(f.overlooking.map((o) => o.toLowerCase()))}`);
+  if (attrs.length) lines.push(`Highlights include ${joinList(attrs)}.`);
+
+  if (f.features.length) lines.push(`Property features: ${joinList(f.features)}.`);
+  if (f.amenities.length) lines.push(`Amenities: ${joinList(f.amenities)}.`);
+  if (f.locationAdvantages.length) {
+    lines.push(`Location advantages: ${joinList(f.locationAdvantages.map((l) => l.toLowerCase()))}.`);
+  }
+
+  /* ---------- Price ---------- */
+  const price = formatMoney(f.price);
+  if (price) {
+    const flags: string[] = [];
+    if (f.negotiable) flags.push('negotiable');
+    if (f.allInclusive) flags.push('all inclusive');
+    if (f.taxExcluded) flags.push('excluding tax and government charges');
+    lines.push(
+      `${c.isSale ? 'Expected price' : c.isPG ? 'Rent per bed' : 'Expected rent'} is ${price}${
+        c.isSale ? '' : ' per month'
+      }${flags.length ? ` (${joinList(flags)})` : ''}.`,
+    );
+  }
+
+  const maintenance = formatMoney(f.maintenanceCharge);
+  if (maintenance) {
+    lines.push(
+      `Maintenance charges are ${maintenance}${f.maintenancePeriod ? ` (${f.maintenancePeriod.toLowerCase()})` : ''}.`,
+    );
+  }
+
+  if (!c.isSale && f.securityDepositType && f.securityDepositType !== 'None' && f.securityDeposit) {
+    lines.push(
+      f.securityDepositType === 'Multiple of rent'
+        ? `Security deposit: ${f.securityDeposit} month(s) of rent.`
+        : `Security deposit: ${formatMoney(f.securityDeposit) || f.securityDeposit}.`,
+    );
+  }
+
+  if (c.isRent && f.preferredTenants.length) {
+    lines.push(`Preferred tenants: ${joinList(f.preferredTenants.map((t) => t.toLowerCase()))}.`);
+  }
+  if (!c.isSale && f.availableFrom) lines.push(`Available from ${f.availableFrom}.`);
+
+  lines.push('Contact us today to schedule a visit.');
+
+  return lines.join(' ').slice(0, 5000);
 };
 
 /* =========================================================
@@ -1410,6 +1596,26 @@ const AddPropertyForm: React.FC<Props> = ({
   };
 
   /* =======================================================
+     AUTO FILL DESCRIPTION
+  ======================================================= */
+
+  const autoFillDescription = async () => {
+    if (form.description.trim()) {
+      const result = await Swal.fire({
+        icon: 'question',
+        title: 'Replace current description?',
+        text: 'Your existing text will be replaced with an auto-generated description.',
+        showCancelButton: true,
+        confirmButtonText: 'Yes, replace',
+        cancelButtonText: 'Keep mine',
+      });
+      if (!result.isConfirmed) return;
+    }
+
+    set('description', buildDescription(form));
+  };
+
+  /* =======================================================
      GOOGLE SCRIPT
   ======================================================= */
 
@@ -1700,16 +1906,12 @@ const AddPropertyForm: React.FC<Props> = ({
   ======================================================= */
 
   const changeLookingTo = (value: string) => {
-    setForm((previous) => {
-
-
-      return {
-        ...previous,
-        lookingTo: value,
-        residentialType:
-          previous.lookingTo === 'Paying Guest' ? '' : previous.residentialType,
-      };
-    });
+    setForm((previous) => ({
+      ...previous,
+      lookingTo: value,
+      residentialType:
+        previous.lookingTo === 'Paying Guest' ? '' : previous.residentialType,
+    }));
   };
 
   /* =======================================================
@@ -2167,7 +2369,7 @@ const AddPropertyForm: React.FC<Props> = ({
 
       /* ---------- derived values ---------- */
 
-      const propertyFor = fc.isSale ? 'Sale'  : 'Rent';
+      const propertyFor = fc.isSale ? 'Sale' : 'Rent';
 
       const place = [f.society, f.landmark, f.area, f.city].filter(Boolean).join(', ');
 
@@ -2192,7 +2394,7 @@ const AddPropertyForm: React.FC<Props> = ({
         isBankProperty: 'no',
       };
 
-      /* ---------- location values ---------- */
+      /* ---------- location values (kept hidden, still saved) ---------- */
 
       payload.append('latitude', String(Number(f.latitude)));
       payload.append('longitude', String(Number(f.longitude)));
@@ -2263,7 +2465,7 @@ const AddPropertyForm: React.FC<Props> = ({
       const data = isEdit
         ? await updateProperty(propertyId as string | number, payload)
         : await createProperty(payload);
-console.log('Submit response:', data);
+
       if (data?.success === false) {
         throw new Error(
           data.error || data.message || (isEdit ? 'Could not update property' : 'Could not add property'),
@@ -2433,7 +2635,7 @@ console.log('Submit response:', data);
           <>
             <Section
               title="Where is your property located?"
-              sub="Select locations from the suggestions so we can save the exact map coordinates."
+              sub="Select locations from the suggestions so we can save the exact map position."
               required
             >
               {/* COUNTRY */}
@@ -2561,28 +2763,8 @@ console.log('Submit response:', data);
                 />
               )}
 
-              {form.formattedAddress && (
-                <div className="apf-selected-address">
-                  <IonIcon icon={locationOutline} />
-                  <div>
-                    <strong>Location selected</strong>
-                    <span>{form.formattedAddress}</span>
-                  </div>
-                </div>
-              )}
-
-              {form.latitude && form.longitude && (
-                <div className="apf-coordinate-box">
-                  <div>
-                    <small>Latitude</small>
-                    <strong>{form.latitude}</strong>
-                  </div>
-                  <div>
-                    <small>Longitude</small>
-                    <strong>{form.longitude}</strong>
-                  </div>
-                </div>
-              )}
+              {/* Selected address and latitude / longitude are kept in state
+                  (and sent to the API) but intentionally NOT displayed. */}
             </Section>
 
             {/* PG */}
@@ -2931,7 +3113,12 @@ console.log('Submit response:', data);
               </Section>
             )}
 
-            <Section title="Property Description" sub="Add useful information about your property.">
+            <Section title="Property Description" sub="Write your own, or auto-fill from the details you entered.">
+              <button type="button" className="apf-autofill" onClick={autoFillDescription}>
+                <IonIcon icon={sparklesOutline} />
+                Auto-fill description
+              </button>
+
               <textarea
                 className="apf-input apf-textarea"
                 rows={7}
