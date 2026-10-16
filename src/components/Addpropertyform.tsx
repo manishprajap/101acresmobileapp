@@ -15,6 +15,7 @@ import {
 import SwalBase from 'sweetalert2';
 
 import './Addpropertyform.css';
+
 import { apiGet, apiPatch, apiPostFormData } from '../api';
 
 /* =========================================================
