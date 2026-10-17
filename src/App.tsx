@@ -36,6 +36,7 @@ import ProfilePage from './components/Profilepage';
 import Listings from './pages/Listings';
 import AddPropertyForm from './components/Addpropertyform';
 import type { Property } from './pages/Dashboard';
+import PlansPage from './pages/Planspage';
 
 setupIonicReact();
 
@@ -101,6 +102,7 @@ const App: React.FC = () => {
           <Route exact path="/profile" component={ProfilePage} />
           <Route exact path="/change-password" component={ChangePasswordPage} />
           <Route exact path="/terms" component={Terms} />
+          <Route exact path="/plans" component={PlansPage} />
         </IonRouterOutlet>
       </IonReactRouter>
     </IonApp>

@@ -112,8 +112,8 @@ body > .swal2-container { z-index: 30000 !important; }
 .apf-unit-row .apf-input:last-child { border-radius: 0 8px 8px 0; }
 
 .apf-prefix { position: relative; }
-.apf-prefix span { position: absolute; left: 14px; top: 13px; font-size: 16px; color: var(--muted); }
-.apf-prefix .apf-input { padding-left: 32px; }
+.apf-prefix span { position: absolute; left: 6px; top: 13px; font-size: 16px; color: var(--muted); }
+.apf-prefix .apf-input { padding-left: 37px; }
 
 /* links / checks */
 .apf-link {

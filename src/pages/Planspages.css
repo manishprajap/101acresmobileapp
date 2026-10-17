@@ -1,0 +1,321 @@
+/* ============ Role dropdown (IonSelect) ============ */
+.auth-select {
+  width: 100%;
+  min-height: 44px;
+  --padding-start: 12px;
+  --padding-end: 12px;
+}
+
+/* ============ Selected plan badge (Register page) ============ */
+.plan-badge {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 16px;
+  padding: 10px 14px;
+  border-radius: 8px;
+  background: #f0fdf4;
+  border: 1px solid #bbf7d0;
+  font-size: 13px;
+  color: #475569;
+}
+
+.plan-badge strong {
+  color: #15803d;
+}
+
+.plan-badge-link {
+  font-size: 12px;
+  font-weight: 600;
+  color: #15803d;
+  text-decoration: underline;
+  white-space: nowrap;
+}
+
+.plan-badge-warning {
+  background: #fefce8;
+  border-color: #fde68a;
+  color: #a16207;
+}
+
+.plan-badge-warning .plan-badge-link {
+  color: #a16207;
+}
+
+/* ============ Plans page ============ */
+.plans-bg {
+  min-height: 100%;
+  padding: 24px 16px 40px;
+  background: #f8fafc;
+}
+
+.plans-head {
+  text-align: center;
+  margin-bottom: 20px;
+}
+
+.plans-title {
+  margin: 0 0 8px;
+  font-size: 22px;
+  font-weight: 700;
+  color: #0f172a;
+}
+
+.plans-sub {
+  margin: 0 auto;
+  max-width: 340px;
+  font-size: 13px;
+  line-height: 1.5;
+  color: #64748b;
+}
+
+.plans-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  padding: 40px 0;
+  text-align: center;
+  color: #64748b;
+}
+
+.plans-error {
+  color: #dc2626;
+}
+
+.plans-list {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  max-width: 480px;
+  margin: 0 auto;
+}
+
+.plan-card {
+  position: relative;
+  padding: 20px;
+  border-radius: 14px;
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  box-shadow: 0 1px 4px rgba(15, 23, 42, 0.05);
+}
+
+.plan-card-popular {
+  border-color: #16a34a;
+  box-shadow: 0 4px 14px rgba(22, 163, 74, 0.15);
+}
+
+.plan-popular-tag {
+  position: absolute;
+  top: 14px;
+  right: 14px;
+  padding: 3px 12px;
+  border-radius: 999px;
+  background: #16a34a;
+  color: #ffffff;
+  font-size: 11px;
+  font-weight: 600;
+}
+
+.plan-name {
+  margin: 0;
+  font-size: 18px;
+  font-weight: 600;
+  color: #0f172a;
+}
+
+.plan-price-row {
+  display: flex;
+  align-items: flex-end;
+  gap: 4px;
+  margin-top: 12px;
+}
+
+.plan-price {
+  font-size: 28px;
+  font-weight: 700;
+  color: #16a34a;
+}
+
+.plan-duration {
+  margin-bottom: 4px;
+  font-size: 13px;
+  color: #94a3b8;
+}
+
+.plan-features {
+  list-style: none;
+  margin: 16px 0 18px;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.plan-features li {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  font-size: 13px;
+  color: #334155;
+}
+
+.plan-check {
+  flex-shrink: 0;
+  margin-top: 1px;
+  font-size: 16px;
+  color: #16a34a;
+}
+
+.plan-btn {
+  --border-color: #16a34a;
+  --color: #16a34a;
+  --color-activated: #ffffff;
+  --background-activated: #16a34a;
+  font-weight: 600;
+}
+
+/* ============ Scan & Pay modal ============ */
+.pay-wrap {
+  padding: 24px 18px 32px;
+  max-width: 480px;
+  margin: 0 auto;
+}
+
+.pay-title {
+  margin: 8px 0 6px;
+  text-align: center;
+  font-size: 20px;
+  font-weight: 700;
+  color: #0f172a;
+}
+
+.pay-sub {
+  margin: 0 0 18px;
+  text-align: center;
+  font-size: 13px;
+  line-height: 1.5;
+  color: #64748b;
+}
+
+.pay-qr-card {
+  width: 220px;
+  margin: 0 auto;
+  border: 2px solid #1e40af;
+  border-radius: 16px;
+  overflow: hidden;
+  background: #ffffff;
+}
+
+.pay-qr-head {
+  padding: 6px 0;
+  background: #1e3a8a;
+  color: #ffffff;
+  text-align: center;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+}
+
+.pay-qr-scan {
+  padding: 4px 0;
+  text-align: center;
+  font-size: 10px;
+  font-weight: 600;
+  color: #334155;
+  border-bottom: 1px dashed #d1d5db;
+}
+
+.pay-qr-img {
+  display: flex;
+  justify-content: center;
+  padding: 12px;
+}
+
+.pay-qr-img img {
+  border-radius: 6px;
+}
+
+.pay-qr-foot {
+  padding: 4px 0;
+  background: #f97316;
+  color: #ffffff;
+  text-align: center;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+}
+
+.pay-upi {
+  display: block;
+  width: 100%;
+  margin: 14px 0 0;
+  padding: 0;
+  background: none;
+  border: none;
+  text-align: center;
+  font-size: 14px;
+  font-weight: 600;
+  color: #16a34a;
+  word-break: break-all;
+}
+
+.pay-upi span {
+  font-size: 11px;
+  font-weight: 400;
+  color: #94a3b8;
+}
+
+.pay-bank {
+  margin-top: 18px;
+  padding: 14px 16px;
+  border-radius: 10px;
+  background: #f8fafc;
+  font-size: 13px;
+  color: #334155;
+}
+
+.pay-bank p {
+  margin: 0 0 8px;
+}
+
+.pay-bank p:last-child {
+  margin-bottom: 0;
+}
+
+.pay-share-title {
+  margin: 22px 0 8px;
+  text-align: center;
+  font-size: 15px;
+  font-weight: 600;
+  color: #0f172a;
+}
+
+.pay-share-note {
+  margin: 0 0 12px;
+  padding: 8px 12px;
+  border-radius: 8px;
+  background: #16a34a;
+  color: #ffffff;
+  text-align: center;
+  font-size: 13px;
+}
+
+.pay-wa-btn {
+  display: block;
+  padding: 12px 16px;
+  border-radius: 8px;
+  background: #16a34a;
+  color: #ffffff;
+  text-align: center;
+  font-size: 15px;
+  font-weight: 600;
+  text-decoration: none;
+}
+
+.pay-continue {
+  margin-top: 18px;
+  --border-color: #64748b;
+  --color: #475569;
+}

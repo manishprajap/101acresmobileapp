@@ -15,6 +15,7 @@ import {
 import SwalBase from 'sweetalert2';
 
 import './Addpropertyform.css';
+import './apf-search-select.css';
 
 import { apiGet, apiPatch, apiPostFormData } from '../api';
 
@@ -156,7 +157,9 @@ type ListKey =
   | 'locationAdvantages'
   | 'overlooking'
   | 'preferredTenants'
-  | 'pgSharing';
+  | 'pgSharing'
+  | 'fireSafety'
+  | 'locatedNear';
 
 /* =========================================================
    FORM STATE
@@ -168,6 +171,8 @@ interface FormState {
   propertyType: string;
   residentialType: string;
   contactNumber: string;
+  contactEmail: string;
+  listingTitle: string;
 
   /* Location */
   countryId: string;
@@ -178,8 +183,9 @@ interface FormState {
   city: string;
   areaId: string;
   area: string;
-  landmark: string;
   society: string;
+  towerBlock: string;
+  unitNumber: string;
   latitude: string;
   longitude: string;
   placeId: string;
@@ -189,6 +195,8 @@ interface FormState {
   beds: string;
   baths: string;
   balconies: string;
+  livingRooms: string;
+  kitchens: string;
 
   /* Area */
   plotArea: string;
@@ -210,6 +218,11 @@ interface FormState {
   floorsAllowed: string;
   boundaryWall: string;
   constructionDone: string;
+  plotPurpose: string;
+  plotApprovalStatus: string;
+  plotAccess: string;
+  plotRoadWidth: string;
+  plotRoadWidthUnit: string;
 
   /* Availability */
   availability: string;
@@ -217,16 +230,29 @@ interface FormState {
   possessionBy: string;
   reraId: string;
   availableFrom: string;
+  moveInPreference: string;
 
-  /* Price */
+  /* Price (plain rupees, same as the website) */
   price: string;
   allInclusive: boolean;
   negotiable: boolean;
   taxExcluded: boolean;
   maintenanceCharge: string;
   maintenancePeriod: string;
+  bookingAmount: string;
   securityDepositType: string;
   securityDeposit: string;
+  brokerage: string;
+  brokerageUnit: string;
+
+  /* Pre-leased + returns (sale) */
+  preLeased: string;
+  currentRent: string;
+  leaseTenure: string;
+  annualRentIncrease: string;
+  leasedToType: string;
+  expectedReturns: string;
+  hideReturns: boolean;
 
   /* Rent */
   preferredTenants: string[];
@@ -247,6 +273,19 @@ interface FormState {
   maxSeats: string;
   cabins: string;
   meetingRooms: string;
+  entranceWidth: string;
+  entranceWidthUnit: string;
+  ceilingHeight: string;
+  ceilingHeightUnit: string;
+  warehouseCapacity: string;
+  loadingDocks: string;
+  powerLoad: string;
+  powerLoadUnit: string;
+  hotelRooms: string;
+  hotelCategory: string;
+  fireSafety: string[];
+  locatedNear: string[];
+  suitableBusinessType: string;
 
   /* Photos */
   sendViaWhatsapp: boolean;
@@ -258,11 +297,10 @@ interface FormState {
   coveredParking: number;
   openParking: number;
   description: string;
+  termsAndConditions: string;
   videoUrl: string;
-  contactEmail: string;
 
   /* Features */
-  ownership: string;
   features: string[];
   amenities: string[];
   locationAdvantages: string[];
@@ -284,6 +322,8 @@ const initial: FormState = {
   propertyType: '',
   residentialType: '',
   contactNumber: '',
+  contactEmail: '',
+  listingTitle: '',
 
   countryId: '',
   country: '',
@@ -293,8 +333,9 @@ const initial: FormState = {
   city: '',
   areaId: '',
   area: '',
-  landmark: '',
   society: '',
+  towerBlock: '',
+  unitNumber: '',
   latitude: '',
   longitude: '',
   placeId: '',
@@ -303,6 +344,8 @@ const initial: FormState = {
   beds: '',
   baths: '',
   balconies: '0',
+  livingRooms: '',
+  kitchens: '',
 
   plotArea: '',
   plotLength: '',
@@ -321,12 +364,18 @@ const initial: FormState = {
   floorsAllowed: '',
   boundaryWall: '',
   constructionDone: '',
+  plotPurpose: '',
+  plotApprovalStatus: '',
+  plotAccess: '',
+  plotRoadWidth: '',
+  plotRoadWidthUnit: 'Feet',
 
   availability: '',
   ageOfProperty: '',
   possessionBy: '',
   reraId: '',
   availableFrom: '',
+  moveInPreference: '',
 
   price: '',
   allInclusive: false,
@@ -334,8 +383,19 @@ const initial: FormState = {
   taxExcluded: false,
   maintenanceCharge: '',
   maintenancePeriod: '',
+  bookingAmount: '',
   securityDepositType: '',
   securityDeposit: '',
+  brokerage: '',
+  brokerageUnit: '',
+
+  preLeased: '',
+  currentRent: '',
+  leaseTenure: '',
+  annualRentIncrease: '',
+  leasedToType: '',
+  expectedReturns: '',
+  hideReturns: false,
 
   preferredTenants: [],
 
@@ -353,6 +413,19 @@ const initial: FormState = {
   maxSeats: '',
   cabins: '',
   meetingRooms: '',
+  entranceWidth: '',
+  entranceWidthUnit: 'ft.',
+  ceilingHeight: '',
+  ceilingHeightUnit: 'ft.',
+  warehouseCapacity: '',
+  loadingDocks: '',
+  powerLoad: '',
+  powerLoadUnit: '',
+  hotelRooms: '',
+  hotelCategory: '',
+  fireSafety: [],
+  locatedNear: [],
+  suitableBusinessType: '',
 
   sendViaWhatsapp: false,
 
@@ -362,10 +435,9 @@ const initial: FormState = {
   coveredParking: 0,
   openParking: 0,
   description: '',
+  termsAndConditions: '',
   videoUrl: '',
-  contactEmail: '',
 
-  ownership: '',
   features: [],
   amenities: [],
   locationAdvantages: [],
@@ -378,26 +450,84 @@ const initial: FormState = {
   roadWidthUnit: 'Feet',
 };
 
-const getSavedContact = (): string => {
+/* =========================================================
+   CONTACT + NUMBER HELPERS (same rules as the website)
+========================================================= */
+
+/** "2500000" -> "₹ 25,00,000 (25 Lakh)" */
+const numberToIndianWords = (numStr?: string): string => {
+  const n = Number(numStr);
+  if (!numStr || Number.isNaN(n) || n <= 0) return '';
+  const trim = (v: number) => String(Number(v.toFixed(2)));
+  let words = '';
+  if (n >= 10000000) words = `${trim(n / 10000000)} Cr`;
+  else if (n >= 100000) words = `${trim(n / 100000)} Lakh`;
+  else if (n >= 1000) words = `${trim(n / 1000)} Thousand`;
+  const full = `₹ ${n.toLocaleString('en-IN')}`;
+  return words ? `${full} (${words})` : full;
+};
+
+/** Returns only the 10 national digits of a stored / typed mobile number. */
+const mobileDigits = (value?: string): string => {
+  const raw = String(value ?? '').trim();
+  const withoutCode = raw.startsWith('+91') ? raw.slice(3) : raw;
+  let digits = withoutCode.replace(/\D/g, '');
+  if (digits.length === 12 && digits.startsWith('91')) digits = digits.slice(2);
+  return digits.slice(0, 10);
+};
+
+/** Stored form value, e.g. "+91 9876543210" (empty when no digits). */
+const toStoredMobile = (digits: string): string => (digits ? `+91 ${digits}` : '');
+
+const isValidMobile = (value?: string): boolean => mobileDigits(value).length === 10;
+const isValidEmail = (value?: string): boolean => /^\S+@\S+\.\S+$/.test(String(value ?? '').trim());
+const isUsableMobile = (value: unknown): boolean => {
+  const s = String(value ?? '').trim();
+  return s !== '' && s !== '0' && !s.includes('@');
+};
+
+const clampMax = (value: string, max: number): string => {
+  if (value === '') return '';
+  const n = Number(value);
+  if (Number.isNaN(n)) return '';
+  if (n < 0) return '0';
+  if (n > max) return String(max);
+  return value;
+};
+
+const getSavedContact = (): { mobile: string; email: string } => {
   try {
     const storedUser = localStorage.getItem('user');
-    if (!storedUser || storedUser === 'undefined' || storedUser === 'null') return '';
+    if (!storedUser || storedUser === 'undefined' || storedUser === 'null') {
+      return { mobile: '', email: '' };
+    }
 
     const parsed = JSON.parse(storedUser);
     const user = parsed?.user ?? parsed?.data ?? parsed;
-    const contact = [
+    const mobile = [
       user?.mobile,
       user?.phone,
       user?.mobileNumber,
       user?.phoneNumber,
       user?.contactNumber,
-      user?.email,
-    ].find((value) => String(value ?? '').trim());
+    ].find(isUsableMobile);
 
-    return contact == null ? '' : String(contact).trim();
+    return {
+      mobile: mobile == null ? '' : String(mobile).trim(),
+      email: String(user?.email ?? '').trim(),
+    };
   } catch {
-    return '';
+    return { mobile: '', email: '' };
   }
+};
+
+/** Mobile + email taken from the cached login profile (empty when missing). */
+const savedContactFields = (): { contactNumber: string; contactEmail: string } => {
+  const saved = getSavedContact();
+  return {
+    contactNumber: toStoredMobile(mobileDigits(saved.mobile)),
+    contactEmail: saved.email,
+  };
 };
 
 /* =========================================================
@@ -455,7 +585,7 @@ const getAddressComponentName = (
   components.find((component) => component.types.some((type) => types.includes(type)))?.long_name ?? '';
 
 /* =========================================================
-   PROPERTY OPTIONS
+   PROPERTY OPTIONS (same lists as the website)
 ========================================================= */
 
 const PG_TYPE = 'PG / Co-living';
@@ -470,6 +600,8 @@ const RES_TYPES = [
   '1 RK / Studio Apartment',
   'Serviced Apartment',
   'Farmhouse',
+  'Penthouse',
+  'Row House',
   'Other',
 ];
 
@@ -485,8 +617,14 @@ const COM_TYPES = [
   'Cold Storage',
   'Factory',
   'Manufacturing Unit',
+  'Industrial Building',
   'Hotel / Resort',
-  'Guest House / Banquet Hall',
+  'Guest House',
+  'Banquet Hall',
+  'Restaurant / Cafe',
+  'Clinic / Healthcare',
+  'School / Educational',
+  'Business Centre',
   'Other',
 ];
 
@@ -494,10 +632,13 @@ const PLOT_TYPES = ['Plot / Land', 'Commercial Land', 'Agricultural Land', 'Indu
 const OFFICE_TYPES = ['Office Space', 'Co-working Space'];
 const RETAIL_TYPES = ['Shop', 'Showroom'];
 const HOUSE_TYPES = ['Independent House / Villa', 'Independent / Builder Floor', 'Farmhouse'];
+const WAREHOUSE_TYPES = ['Warehouse / Godown', 'Cold Storage'];
+const HOSPITALITY_TYPES = ['Hotel / Resort', 'Guest House', 'Banquet Hall'];
 
 const BEDS = ['1', '2', '3', '4', '5', '5+'];
 const BATHS = ['1', '2', '3', '4', '4+'];
 const BALCONIES = ['0', '1', '2', '3', 'More than 3'];
+const ROOM_COUNTS = ['0', '1', '2', '3', '4+'];
 
 const AREA_UNITS = [
   'sq.ft.',
@@ -538,7 +679,6 @@ const POSSESSION = [
   ...[0, 1, 2, 3, 4].map((i) => `By ${YEAR + i}`),
 ];
 
-const OWNERSHIP = ['Owner','Dealer','Freehold', 'Leasehold', 'Co-operative society', 'Power of Attorney'];
 const MAINT_PERIOD = ['Monthly', 'Quarterly', 'Yearly', 'One time'];
 const DEPOSIT_TYPES = ['None', 'Fixed', 'Multiple of rent'];
 const TENANTS = ['Family', 'Bachelor Men', 'Bachelor Women', 'Company'];
@@ -547,6 +687,13 @@ const PG_SHARING = ['Single', 'Double', 'Triple', '4+ sharing'];
 const PG_FOOD = ['Yes', 'No'];
 const PG_NOTICE = ['None', '15 days', '1 month', '2 months'];
 const YES_NO = ['Yes', 'No'];
+const MOVE_IN_OPTIONS = ['Immediate', 'Within 15 days', 'Within 30 days', 'Flexible'];
+const BROKERAGE_UNITS = ['Fixed amount', 'Percent of transaction'];
+
+const PLOT_PURPOSES = ['Residential', 'Commercial', 'Industrial', 'Agricultural', 'Mixed use'];
+const PLOT_APPROVALS = ['Approved', 'Approval in progress', 'Not approved', 'Not applicable'];
+const PLOT_ACCESS = ['Main road', 'Internal road', 'Corner plot', 'No direct road access'];
+const HOTEL_CATEGORIES = ['Budget', '3 star', '4 star', '5 star', 'Other'];
 
 const LOCATED_INSIDE = [
   'Mall',
@@ -643,8 +790,44 @@ const FACING = [
   'South-West',
 ];
 const FLOORING = ['Marble', 'Vitrified', 'Ceramic', 'Granite', 'Wooden', 'Mosaic', 'Cement', 'Other'];
+const FIRE_SAFETY = ['Fire Extinguisher', 'Fire Sensors', 'Sprinklers', 'Fire Hose'];
+const LOCATED_NEAR = ['Entrance', 'Elevator', 'Stairs'];
+const BUSINESS_TYPES = [
+  'Retail / Apparel',
+  'Food & Beverage',
+  'Electronics',
+  'Grocery / Supermarket',
+  'Salon / Spa',
+  'Pharmacy',
+  'Bank / ATM',
+  'Showroom',
+  'Other',
+];
 
 const MIN_DESC = 30;
+
+/** Road width can never be more than this value. */
+const MAX_ROAD_WIDTH = 100;
+
+/* =========================================================
+   PRICE
+========================================================= */
+
+const LAKH = 100000;
+const CRORE = 10000000;
+
+/** Full rupee value of the entered price (plain rupees, same as the website). */
+const priceInRupees = (f: Pick<FormState, 'price'>): number => {
+  const n = Number(String(f.price).replace(/,/g, ''));
+  return Number.isFinite(n) && n > 0 ? Math.round(n) : 0;
+};
+
+/** 4500000 -> "45 Lakh", 12000000 -> "1.2 Crore" */
+const rupeesInWords = (rupees: number): string => {
+  if (rupees >= CRORE) return `${Number((rupees / CRORE).toFixed(2))} Crore`;
+  if (rupees >= LAKH) return `${Number((rupees / LAKH).toFixed(2))} Lakh`;
+  return '';
+};
 
 /* =========================================================
    HYDRATE (edit mode)
@@ -699,7 +882,7 @@ const unwrapProperty = (res: unknown): Record<string, unknown> | null => {
 const hydrateForm = (property: Record<string, unknown>): FormState => {
   const hydrated: FormState = {
     ...initial,
-    contactNumber: getSavedContact(),
+    ...savedContactFields(),
   };
   const setHydratedValue = <K extends keyof FormState>(key: K, value: FormState[K]): void => {
     hydrated[key] = value;
@@ -752,10 +935,7 @@ const hydrateForm = (property: Record<string, unknown>): FormState => {
     }
   });
 
-  /* ---------- Looking to (Sale / Rent / PG) ----------
-     Never trust a single field: the saved value can be empty, lower case
-     ("rent"), "Rent / Lease", or live under another key (property_For).
-     Try every source in order and keep the first one that is recognised. */
+  /* ---------- Looking to (Sale / Rent / PG) ---------- */
   const toLookingTo = (raw: unknown): string => {
     const text = String(raw ?? '').trim().toLowerCase();
     if (!text) return '';
@@ -782,10 +962,7 @@ const hydrateForm = (property: Record<string, unknown>): FormState => {
   hydrated.lookingTo =
     lookingToSources.map(toLookingTo).find((value) => value !== '') || 'Sale';
 
-  /* ---------- Property type (Residential / Commercial + sub type) ----------
-     Some rows keep the category ("Residential") in propertyType and the sub type
-     ("Flat / Apartment") in residentialType, others have them the other way
-     round. Look at both values (and the title) and sort them out. */
+  /* ---------- Property type (Residential / Commercial + sub type) ---------- */
   const allTypes = [...RES_TYPES, ...COM_TYPES];
   const titleType = titleText.split(' for ')[0].trim();
   const typeCandidates = [
@@ -817,8 +994,10 @@ const hydrateForm = (property: Record<string, unknown>): FormState => {
     availability: AVAILABILITY,
     ageOfProperty: AGE,
     possessionBy: POSSESSION,
+    moveInPreference: MOVE_IN_OPTIONS,
     maintenancePeriod: MAINT_PERIOD,
     securityDepositType: DEPOSIT_TYPES,
+    brokerageUnit: BROKERAGE_UNITS,
     preferredTenants: TENANTS,
     pgSuitableFor: PG_FOR,
     pgSharing: PG_SHARING,
@@ -828,9 +1007,16 @@ const hydrateForm = (property: Record<string, unknown>): FormState => {
     zoneType: ZONES,
     washrooms: WASHROOMS,
     pantry: PANTRY,
+    plotPurpose: PLOT_PURPOSES,
+    plotApprovalStatus: PLOT_APPROVALS,
+    plotAccess: PLOT_ACCESS,
+    plotRoadWidthUnit: ['Feet', 'Meter'],
+    hotelCategory: HOTEL_CATEGORIES,
+    fireSafety: FIRE_SAFETY,
+    locatedNear: LOCATED_NEAR,
+    suitableBusinessType: BUSINESS_TYPES,
     otherRooms: OTHER_ROOMS,
     furnishing: FURNISHING,
-    ownership: OWNERSHIP,
     features: FEATURES,
     amenities: AMENITIES,
     locationAdvantages: LOCATION_ADV,
@@ -860,17 +1046,8 @@ const hydrateForm = (property: Record<string, unknown>): FormState => {
     property.areaName ?? property.area_name ?? property.localityName ?? property.locality_name,
     property.area ?? property.locality,
   );
-  hydrated.landmark = getLocationName(
-    property.subLocalityName
-      ?? property.sublocalityName
-      ?? property.sub_locality_name
-      ?? property.landmarkName,
-    property.subLocality
-      ?? property.sublocality
-      ?? property.sub_locality
-      ?? property.landmark,
-  );
 
+  /* ---------- Price (full rupees, shown as saved) ---------- */
   const priceValues = [
     property.price,
     property.expectedPrice,
@@ -882,10 +1059,15 @@ const hydrateForm = (property: Record<string, unknown>): FormState => {
     hydrated.formattedAddress = String(property.googleLocation);
   }
 
-  /* ---------- Contact ---------- */
-  const contactNumber = property.contactNumber ?? property.contact_number ?? property.contactName ?? property.phone;
-  if (contactNumber != null && String(contactNumber).trim()) {
-    hydrated.contactNumber = String(contactNumber);
+  /* ---------- Contact: mobile and email are separate fields ---------- */
+  const rawContact = String(
+    property.contactNumber ?? property.contact_number ?? property.contactName ?? property.phone ?? '',
+  ).trim();
+  if (rawContact.includes('@')) {
+    if (!hydrated.contactEmail.trim()) hydrated.contactEmail = rawContact;
+    hydrated.contactNumber = savedContactFields().contactNumber;
+  } else if (rawContact) {
+    hydrated.contactNumber = toStoredMobile(mobileDigits(rawContact));
   }
 
   /* ---------- Area ---------- */
@@ -907,11 +1089,7 @@ const hydrateForm = (property: Record<string, unknown>): FormState => {
     hydrated.availableFrom = hydrated.availableFrom.slice(0, 10);
   }
 
-  /* ---------- Older rows: recover what the saved description still says ----------
-     Properties saved before the complete form was stored (form_data) only kept
-     part of the data in table columns, e.g. the furnishing counts were lost.
-     The auto-generated description lists those values, so read them back.
-     Only EMPTY fields are filled, real saved data is never overwritten. */
+  /* ---------- Older rows: recover what the saved description still says ---------- */
   const descText = String(hydrated.description ?? '');
   if (descText) {
     const lower = descText.toLowerCase();
@@ -927,7 +1105,6 @@ const hydrateForm = (property: Record<string, unknown>): FormState => {
         )
         .filter((option): option is string => Boolean(option));
 
-    // "The property is furnished, including 1 light, 1 fans and 1 geyser."
     if (
       (hydrated.furnishing === 'Furnished' || hydrated.furnishing === 'Semi-Furnished') &&
       Object.keys(hydrated.furnishingItems).length === 0
@@ -1023,7 +1200,10 @@ const categorize = (f: FormState) => {
   const isRes = f.propertyType === 'Residential';
   const isPlot = !isPG && PLOT_TYPES.includes(f.residentialType);
   const isOffice = !isPG && OFFICE_TYPES.includes(f.residentialType);
-  const isRetail = !isPG && RETAIL_TYPES.includes(f.residentialType);
+  const isRetail =
+    !isPG && (RETAIL_TYPES.includes(f.residentialType) || f.residentialType === 'Restaurant / Cafe');
+  const isWarehouse = !isPG && WAREHOUSE_TYPES.includes(f.residentialType);
+  const isHospitality = !isPG && HOSPITALITY_TYPES.includes(f.residentialType);
   const hasBuilding = !isPG && !isPlot;
   const hasRooms = hasBuilding && isRes;
   const isCommercial = hasBuilding && !isRes;
@@ -1036,6 +1216,8 @@ const categorize = (f: FormState) => {
     isPlot,
     isOffice,
     isRetail,
+    isWarehouse,
+    isHospitality,
     hasBuilding,
     hasRooms,
     isCommercial,
@@ -1059,6 +1241,11 @@ const cleanForm = (f: FormState): FormState => {
       floorsAllowed: '',
       boundaryWall: '',
       constructionDone: '',
+      plotPurpose: '',
+      plotApprovalStatus: '',
+      plotAccess: '',
+      plotRoadWidth: '',
+      plotRoadWidthUnit: '',
     });
   }
 
@@ -1080,6 +1267,7 @@ const cleanForm = (f: FormState): FormState => {
       powerBackup: '',
       flooring: '',
       features: [],
+      preLeased: '',
     });
   }
 
@@ -1088,6 +1276,8 @@ const cleanForm = (f: FormState): FormState => {
       beds: '',
       baths: '',
       balconies: '',
+      livingRooms: '',
+      kitchens: '',
       duplex: false,
       otherRooms: [],
     });
@@ -1123,6 +1313,14 @@ const cleanForm = (f: FormState): FormState => {
       allInclusive: false,
       taxExcluded: false,
       reraId: '',
+      bookingAmount: '',
+      preLeased: '',
+      currentRent: '',
+      leaseTenure: '',
+      annualRentIncrease: '',
+      leasedToType: '',
+      expectedReturns: '',
+      hideReturns: false,
     });
   }
 
@@ -1131,6 +1329,7 @@ const cleanForm = (f: FormState): FormState => {
       availableFrom: '',
       securityDepositType: '',
       securityDeposit: '',
+      moveInPreference: '',
     });
   }
 
@@ -1140,6 +1339,13 @@ const cleanForm = (f: FormState): FormState => {
 
   if (!f.securityDepositType || f.securityDepositType === 'None') {
     reset({ securityDeposit: '' });
+  }
+
+  if (f.preLeased !== 'Yes') {
+    reset({ currentRent: '', leaseTenure: '', annualRentIncrease: '', leasedToType: '' });
+  }
+  if (!c.hasBuilding) {
+    reset({ expectedReturns: '', hideReturns: false });
   }
 
   if (!c.isPG) {
@@ -1157,6 +1363,11 @@ const cleanForm = (f: FormState): FormState => {
       locatedInside: '',
       zoneType: '',
       washrooms: '',
+      fireSafety: [],
+      locatedNear: [],
+      suitableBusinessType: '',
+      powerLoad: '',
+      powerLoadUnit: '',
     });
   }
 
@@ -1171,12 +1382,19 @@ const cleanForm = (f: FormState): FormState => {
   }
 
   if (!c.isRetail) {
-    reset({ locatedInside: '' });
+    reset({ locatedInside: '', entranceWidth: '', ceilingHeight: '' });
+  }
+
+  if (!c.isWarehouse) {
+    reset({ warehouseCapacity: '', loadingDocks: '' });
+  }
+
+  if (!c.isHospitality) {
+    reset({ hotelRooms: '', hotelCategory: '' });
   }
 
   if (c.isPG) {
     reset({
-      ownership: '',
       openSides: '',
       facing: '',
       roadWidth: '',
@@ -1192,8 +1410,6 @@ const cleanForm = (f: FormState): FormState => {
 
 /* =========================================================
    AUTO DESCRIPTION
-   Builds a professional description from everything the user
-   has already filled in on the previous steps.
 ========================================================= */
 
 const joinList = (items: string[]): string => {
@@ -1211,7 +1427,7 @@ const buildDescription = (raw: FormState): string => {
   const f = cleanForm(raw);
   const c = categorize(f);
   const unit = f.areaUnit;
-  const place = [f.society, f.landmark, f.area, f.city].filter(Boolean).join(', ');
+  const place = [f.society, f.area, f.city].filter(Boolean).join(', ');
   const inPlace = place ? ` in ${place}` : '';
   const lines: string[] = [];
 
@@ -1232,6 +1448,8 @@ const buildDescription = (raw: FormState): string => {
     if (f.balconies && f.balconies !== '0') {
       rooms.push(`${f.balconies} ${f.balconies === '1' ? 'balcony' : 'balconies'}`);
     }
+    if (f.livingRooms) rooms.push(`${f.livingRooms} living ${f.livingRooms === '1' ? 'room' : 'rooms'}`);
+    if (f.kitchens) rooms.push(`${f.kitchens} ${f.kitchens === '1' ? 'kitchen' : 'kitchens'}`);
     if (rooms.length) lines.push(`The home offers ${joinList(rooms)}${f.duplex ? ' in a duplex layout' : ''}.`);
     if (f.otherRooms.length) {
       lines.push(`Additional rooms include ${joinList(f.otherRooms.map((r) => r.toLowerCase()))}.`);
@@ -1260,6 +1478,9 @@ const buildDescription = (raw: FormState): string => {
     if (f.floorsAllowed) extra.push(`${f.floorsAllowed} floors permitted`);
     if (f.boundaryWall === 'Yes') extra.push('a boundary wall');
     if (f.constructionDone === 'Yes') extra.push('existing construction');
+    if (f.plotPurpose) extra.push(`${f.plotPurpose.toLowerCase()} land use`);
+    if (f.plotApprovalStatus) extra.push(`${f.plotApprovalStatus.toLowerCase()} status`);
+    if (f.plotAccess) extra.push(`${f.plotAccess.toLowerCase()} access`);
     if (extra.length) lines.push(`It comes with ${joinList(extra)}.`);
   } else if (c.hasBuilding) {
     const areas: string[] = [];
@@ -1303,6 +1524,11 @@ const buildDescription = (raw: FormState): string => {
     }
     if (f.cabins) com.push(`${f.cabins} cabins`);
     if (f.meetingRooms) com.push(`${f.meetingRooms} meeting rooms`);
+    if (f.warehouseCapacity) com.push(`storage capacity of ${f.warehouseCapacity}`);
+    if (f.loadingDocks) com.push(`${f.loadingDocks} loading docks`);
+    if (f.powerLoad) com.push(`power load of ${f.powerLoad} ${f.powerLoadUnit}`.trim());
+    if (f.hotelRooms) com.push(`${f.hotelRooms} rooms`);
+    if (f.hotelCategory) com.push(`${f.hotelCategory.toLowerCase()} category`);
     if (com.length) lines.push(`Key commercial details: ${joinList(com)}.`);
   }
 
@@ -1325,7 +1551,6 @@ const buildDescription = (raw: FormState): string => {
   /* ---------- Other attributes ---------- */
   const attrs: string[] = [];
   if (f.facing) attrs.push(`${f.facing.toLowerCase()}-facing`);
-  if (f.ownership) attrs.push(`${f.ownership.toLowerCase()} ownership`);
   if (f.openSides) attrs.push(`${f.openSides} open sides`);
   if (f.flooring) attrs.push(`${f.flooring.toLowerCase()} flooring`);
   if (f.powerBackup && f.powerBackup !== 'None') attrs.push(`${f.powerBackup.toLowerCase()} power backup`);
@@ -1335,21 +1560,24 @@ const buildDescription = (raw: FormState): string => {
 
   if (f.features.length) lines.push(`Property features: ${joinList(f.features)}.`);
   if (f.amenities.length) lines.push(`Amenities: ${joinList(f.amenities)}.`);
+  if (f.fireSafety.length) lines.push(`Fire safety: ${joinList(f.fireSafety.map((s) => s.toLowerCase()))}.`);
   if (f.locationAdvantages.length) {
     lines.push(`Location advantages: ${joinList(f.locationAdvantages.map((l) => l.toLowerCase()))}.`);
   }
 
   /* ---------- Price ---------- */
-  const price = formatMoney(f.price);
+  const rupees = priceInRupees(f);
+  const price = formatMoney(String(rupees));
   if (price) {
+    const words = c.isSale ? rupeesInWords(rupees) : '';
     const flags: string[] = [];
     if (f.negotiable) flags.push('negotiable');
     if (f.allInclusive) flags.push('all inclusive');
     if (f.taxExcluded) flags.push('excluding tax and government charges');
     lines.push(
       `${c.isSale ? 'Expected price' : c.isPG ? 'Rent per bed' : 'Expected rent'} is ${price}${
-        c.isSale ? '' : ' per month'
-      }${flags.length ? ` (${joinList(flags)})` : ''}.`,
+        words ? ` (${words})` : ''
+      }${c.isSale ? '' : ' per month'}${flags.length ? ` (${joinList(flags)})` : ''}.`,
     );
   }
 
@@ -1365,6 +1593,14 @@ const buildDescription = (raw: FormState): string => {
       f.securityDepositType === 'Multiple of rent'
         ? `Security deposit: ${f.securityDeposit} month(s) of rent.`
         : `Security deposit: ${formatMoney(f.securityDeposit) || f.securityDeposit}.`,
+    );
+  }
+
+  if (c.isSale && f.preLeased === 'Yes' && f.currentRent) {
+    lines.push(
+      `The property is pre-leased at ${formatMoney(f.currentRent) || f.currentRent} per month${
+        f.leaseTenure ? ` for ${f.leaseTenure} year(s)` : ''
+      }.`,
     );
   }
 
@@ -1497,18 +1733,39 @@ const Input: React.FC<{
   placeholder?: string;
   type?: string;
   min?: string;
+  max?: string;
   maxLength?: number;
-}> = ({ value, onChange, placeholder, type = 'text', min, maxLength }) => (
+}> = ({ value, onChange, placeholder, type = 'text', min, max, maxLength }) => (
   <input
     className="apf-input"
     type={type}
     min={min}
+    max={max}
     maxLength={maxLength}
     placeholder={placeholder}
     value={value}
     onChange={(e) => onChange(e.target.value)}
   />
 );
+
+/** Rupee input with a live "₹ 25,00,000 (25 Lakh)" line below it. */
+const Money: React.FC<{
+  value: string;
+  onChange: (value: string) => void;
+  placeholder?: string;
+  showWords?: boolean;
+}> = ({ value, onChange, placeholder, showWords = true }) => {
+  const words = showWords ? numberToIndianWords(value) : '';
+  return (
+    <>
+      <div className="apf-prefix">
+        <span>₹</span>
+        <Input type="number" min="0" placeholder={placeholder} value={value} onChange={onChange} />
+      </div>
+      {words && <p className="apf-note">{words}</p>}
+    </>
+  );
+};
 
 const Dropdown: React.FC<{
   value: string;
@@ -1525,7 +1782,138 @@ const Dropdown: React.FC<{
 );
 
 /* =========================================================
-   GOOGLE LOCATION AUTOCOMPLETE
+   SEARCHABLE SELECT (Country / State / City)
+   Opens a list with a search box at the bottom.
+========================================================= */
+
+interface SearchableSelectProps {
+  label: string;
+  required?: boolean;
+  value: string;
+  options: LookupItem[];
+  placeholder: string;
+  searchPlaceholder?: string;
+  disabled?: boolean;
+  onChange: (id: string) => void;
+}
+
+const SearchableSelect: React.FC<SearchableSelectProps> = ({
+  label,
+  required = false,
+  value,
+  options,
+  placeholder,
+  searchPlaceholder = 'Search…',
+  disabled = false,
+  onChange,
+}) => {
+  const [open, setOpen] = useState(false);
+  const [query, setQuery] = useState('');
+  const rootRef = useRef<HTMLDivElement>(null);
+
+  const selected = options.find((item) => String(item.id) === value);
+  const needle = query.trim().toLowerCase();
+  const filtered = needle
+    ? options.filter((item) => item.name.toLowerCase().includes(needle))
+    : options;
+
+  // Close when tapping / clicking outside.
+  useEffect(() => {
+    if (!open) return undefined;
+
+    const handleOutside = (event: MouseEvent | TouchEvent): void => {
+      if (rootRef.current && !rootRef.current.contains(event.target as Node)) {
+        setOpen(false);
+        setQuery('');
+      }
+    };
+
+    document.addEventListener('mousedown', handleOutside);
+    document.addEventListener('touchstart', handleOutside);
+    return () => {
+      document.removeEventListener('mousedown', handleOutside);
+      document.removeEventListener('touchstart', handleOutside);
+    };
+  }, [open]);
+
+  // Never leave the list open when the field becomes disabled.
+  useEffect(() => {
+    if (disabled) {
+      setOpen(false);
+      setQuery('');
+    }
+  }, [disabled]);
+
+  const choose = (id: string): void => {
+    onChange(id);
+    setOpen(false);
+    setQuery('');
+  };
+
+  return (
+    <div className="apf-ss" ref={rootRef}>
+      <label className="apf-location-label">
+        {label}
+        {required && <Req />}
+      </label>
+
+      <button
+        type="button"
+        className="apf-input apf-select apf-ss-trigger"
+        disabled={disabled}
+        aria-haspopup="listbox"
+        aria-expanded={open}
+        onClick={() => {
+          setOpen((previous) => !previous);
+          setQuery('');
+        }}
+      >
+        <span className={selected ? '' : 'apf-ss-placeholder'}>
+          {selected ? selected.name : placeholder}
+        </span>
+      </button>
+
+      {open && (
+        <div className="apf-ss-panel">
+          <ul className="apf-ss-list" role="listbox">
+            {filtered.length === 0 ? (
+              <li className="apf-ss-empty">No results found</li>
+            ) : (
+              filtered.map((item) => {
+                const isSelected = String(item.id) === value;
+                return (
+                  <li key={item.id} role="option" aria-selected={isSelected}>
+                    <button
+                      type="button"
+                      className={`apf-ss-option ${isSelected ? 'apf-ss-option--on' : ''}`}
+                      onClick={() => choose(String(item.id))}
+                    >
+                      {item.name}
+                    </button>
+                  </li>
+                );
+              })
+            )}
+          </ul>
+
+          <div className="apf-ss-search">
+            <IonIcon icon={searchOutline} />
+            <input
+              autoFocus
+              value={query}
+              placeholder={searchPlaceholder}
+              autoComplete="off"
+              onChange={(event) => setQuery(event.target.value)}
+            />
+          </div>
+        </div>
+      )}
+    </div>
+  );
+};
+
+/* =========================================================
+   GOOGLE LOCATION AUTOCOMPLETE (locality / society)
 ========================================================= */
 
 interface LocationAutocompleteProps {
@@ -1534,7 +1922,9 @@ interface LocationAutocompleteProps {
   value: string;
   disabled?: boolean;
   required?: boolean;
-  type: 'city' | 'locality' | 'sublocality' | 'society';
+  type: 'city' | 'locality' | 'society';
+  /** Extra text appended to the search, e.g. the selected city. */
+  context?: string;
   onInput: (value: string) => void;
   onSelect: (prediction: GooglePlacePrediction) => void;
 }
@@ -1546,6 +1936,7 @@ const LocationAutocomplete: React.FC<LocationAutocompleteProps> = ({
   disabled = false,
   required = false,
   type,
+  context,
   onInput,
   onSelect,
 }) => {
@@ -1597,17 +1988,16 @@ const LocationAutocomplete: React.FC<LocationAutocompleteProps> = ({
 
       setLoading(true);
 
+      const query = value.trim();
       const request: google.maps.places.AutocompletionRequest = {
-        input: value.trim(),
+        input: context ? `${query}, ${context}` : query,
         componentRestrictions: { country: 'in' },
       };
 
       if (type === 'city') {
         request.types = ['(cities)'];
       } else if (type === 'locality') {
-        request.types = ['locality', 'sublocality', 'postal_code'];
-      } else if (type === 'sublocality') {
-        request.types = ['sublocality', 'sublocality_level_1', 'sublocality_level_2', 'neighborhood'];
+        request.types = ['(regions)'];
       } else {
         request.types = ['establishment'];
       }
@@ -1629,7 +2019,7 @@ const LocationAutocomplete: React.FC<LocationAutocompleteProps> = ({
         requestSequenceRef.current += 1;
       }
     };
-  }, [value, disabled, type, mapsReady]);
+  }, [value, disabled, type, mapsReady, context]);
 
   const handleSelect = (prediction: GooglePlacePrediction) => {
     selectionMadeRef.current = true;
@@ -1729,7 +2119,7 @@ const AddPropertyForm: React.FC<Props> = ({
   const [form, setForm] = useState<FormState>(() =>
     isEdit && property
       ? hydrateForm(property)
-      : { ...initial, contactNumber: getSavedContact() },
+      : { ...initial, ...savedContactFields() },
   );
 
   // Full property record (the list item passed in is often only a summary).
@@ -1743,7 +2133,7 @@ const AddPropertyForm: React.FC<Props> = ({
 
   const [countries, setCountries] = useState<LookupItem[]>([]);
   const [states, setStates] = useState<LookupItem[]>([]);
-  const [, setCities] = useState<LookupItem[]>([]);
+  const [cities, setCities] = useState<LookupItem[]>([]);
   const [areas, setAreas] = useState<LookupItem[]>([]);
 
   const [googleMapsReady, setGoogleMapsReady] = useState(() => Boolean(window.google?.maps));
@@ -1783,6 +2173,9 @@ const AddPropertyForm: React.FC<Props> = ({
       furnishingItems: { ...previous.furnishingItems, [name]: count },
     }));
   };
+
+  /** Facing road width: never allow more than MAX_ROAD_WIDTH or a negative number. */
+  const onRoadWidth = (value: string) => set('roadWidth', clampMax(value, MAX_ROAD_WIDTH));
 
   /* =======================================================
      AUTO FILL DESCRIPTION
@@ -1872,8 +2265,6 @@ const AddPropertyForm: React.FC<Props> = ({
 
   /* =======================================================
      EDIT MODE: load the COMPLETE saved record
-     (the dashboard list only carries a summary, so fields such as
-     amenities, furnishing, coordinates etc. would otherwise be blank)
   ======================================================= */
 
   useEffect(() => {
@@ -1940,10 +2331,6 @@ const AddPropertyForm: React.FC<Props> = ({
           'sublocality',
           'neighborhood',
         ]);
-        const geoLandmark = getAddressComponentName(addressComponents, [
-          'sublocality_level_2',
-          'neighborhood',
-        ]);
         const addressParts = getLocationAddressParts(property);
         const addressCountry = geoCountry || addressParts.at(-1);
         const addressState = geoState || addressParts.at(-2);
@@ -1964,16 +2351,6 @@ const AddPropertyForm: React.FC<Props> = ({
           property.locality ?? property.area ?? property.localityId ?? property.locality_id,
         ) || geoArea;
         let areaId = '';
-        let landmarkName = getLocationName(
-          property.subLocalityName
-            ?? property.sublocalityName
-            ?? property.sub_locality_name
-            ?? property.landmarkName,
-          property.subLocality
-            ?? property.sublocality
-            ?? property.sub_locality
-            ?? property.landmark,
-        ) || geoLandmark;
 
         if (country) {
           const stateOptions = lookupItems(await apiGet(`/states?countryId=${country.id}`));
@@ -2021,22 +2398,6 @@ const AddPropertyForm: React.FC<Props> = ({
             areaId = String(area.id);
             areaName = area.name;
           }
-          const landmark = findLookupItem(
-            areaOptions,
-            property.landmarkId
-              ?? property.landmark_id
-              ?? property.subLocalityId
-              ?? property.sublocalityId
-              ?? property.sub_locality_id
-              ?? property.subLocalityName
-              ?? property.sublocalityName
-              ?? property.sub_locality_name
-              ?? property.subLocality
-              ?? property.sublocality
-              ?? property.sub_locality
-              ?? property.landmark,
-          ) ?? findLookupItem(areaOptions, geoLandmark);
-          if (landmark) landmarkName = landmark.name;
         } else {
           setAreas([]);
         }
@@ -2047,9 +2408,6 @@ const AddPropertyForm: React.FC<Props> = ({
         const addressPartsBeforeCity = cityIndex > 0 ? addressParts.slice(0, cityIndex) : [];
         if (!areaName && addressPartsBeforeCity.length > 0) {
           areaName = addressPartsBeforeCity[addressPartsBeforeCity.length - 1];
-        }
-        if (!landmarkName && addressPartsBeforeCity.length > 1) {
-          landmarkName = addressPartsBeforeCity[addressPartsBeforeCity.length - 2];
         }
 
         if (!cityName && addressCity) {
@@ -2072,7 +2430,6 @@ const AddPropertyForm: React.FC<Props> = ({
           city: cityName || current.city,
           areaId: areaId || current.areaId,
           area: areaName || current.area,
-          landmark: landmarkName || current.landmark,
         }));
       } catch (error) {
         console.error('Property location lookup error:', error);
@@ -2119,7 +2476,6 @@ const AddPropertyForm: React.FC<Props> = ({
     city: '',
     areaId: '',
     area: '',
-    landmark: '',
     society: '',
     latitude: '',
     longitude: '',
@@ -2161,7 +2517,6 @@ const AddPropertyForm: React.FC<Props> = ({
       city: '',
       areaId: '',
       area: '',
-      landmark: '',
       society: '',
       latitude: '',
       longitude: '',
@@ -2180,6 +2535,21 @@ const AddPropertyForm: React.FC<Props> = ({
       setCities([]);
     }
   };
+
+  /* =======================================================
+     DEFAULT COUNTRY = INDIA (add mode only)
+  ======================================================= */
+
+  const applyDefaultCountry = (list: LookupItem[]) => {
+    const india = list.find((item) => item.name.trim().toLowerCase() === 'india');
+    if (india) void onCountry(String(india.id));
+  };
+
+  useEffect(() => {
+    if (isEdit || form.countryId || countries.length === 0) return;
+    applyDefaultCountry(countries);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isEdit, countries]);
 
   /* =======================================================
      PLACE DETAILS
@@ -2218,77 +2588,64 @@ const AddPropertyForm: React.FC<Props> = ({
     )?.long_name || '';
 
   /* =======================================================
-     CITY GOOGLE SELECT
+     CITY (picked from the searchable database list, like the website)
   ======================================================= */
 
-  const selectCity = async (prediction: GooglePlacePrediction) => {
-    const place = await getPlaceDetails(prediction.place_id);
-    if (!place) return;
-
-    const googleCityName =
-      getAddressComponent(place, [
-        'locality',
-        'postal_town',
-        'administrative_area_level_3',
-        'administrative_area_level_2',
-      ]) ||
-      prediction.structured_formatting?.main_text ||
-      '';
-
-    const stateName = getAddressComponent(place, ['administrative_area_level_1']);
-    const latitude = place.geometry?.location?.lat();
-    const longitude = place.geometry?.location?.lng();
-
-    let stateId = form.stateId;
-    let state = form.state;
-
-    if (stateName) {
-      const stateMatch = states.find(
-        (item) => item.name.toLowerCase().trim() === stateName.toLowerCase().trim(),
-      );
-      if (stateMatch) {
-        stateId = String(stateMatch.id);
-        state = stateMatch.name;
-      }
-    }
-
-    let cityId = '';
-
-    try {
-      if (stateId) {
-        const list = lookupItems(await apiGet(`/cities?stateId=${stateId}`));
-        setCities(list);
-        const cityMatch = list.find(
-          (item) => normalizeLocationName(item.name) === normalizeLocationName(googleCityName),
-        );
-        if (cityMatch) cityId = String(cityMatch.id);
-      }
-    } catch (error) {
-      console.error('City lookup error:', error);
-    }
+  const selectCityFromList = async (id: string) => {
+    const item = cities.find((entry) => String(entry.id) === id);
+    if (!item) return;
 
     setForm((previous) => ({
       ...previous,
-      stateId,
-      state: state || stateName,
-      cityId,
-      city: googleCityName,
+      city: item.name,
+      cityId: id,
       areaId: '',
       area: '',
-      landmark: '',
       society: '',
-      latitude: latitude !== undefined ? String(latitude) : '',
-      longitude: longitude !== undefined ? String(longitude) : '',
-      placeId: place.place_id || prediction.place_id,
-      formattedAddress: place.formatted_address || '',
+      latitude: '',
+      longitude: '',
+      placeId: '',
+      formattedAddress: '',
     }));
 
-    if (cityId) {
-      try {
-        setAreas(lookupItems(await apiGet(`/area?cityId=${cityId}`)));
-      } catch {
-        setAreas([]);
+    // Load the localities of this city for matching later.
+    try {
+      setAreas(lookupItems(await apiGet(`/area?cityId=${id}`)));
+    } catch {
+      setAreas([]);
+    }
+
+    // Resolve coordinates through Google so latitude / longitude are saved.
+    try {
+      if (!window.google?.maps?.places) return;
+      const service = new window.google.maps.places.AutocompleteService();
+      const predictions = await new Promise<google.maps.places.AutocompletePrediction[]>((resolve) => {
+        service.getPlacePredictions(
+          {
+            input: `${item.name}, ${form.state}`,
+            componentRestrictions: { country: 'in' },
+            types: ['(cities)'],
+          },
+          (result) => resolve(result || []),
+        );
+      });
+
+      if (predictions[0]) {
+        const place = await getPlaceDetails(predictions[0].place_id);
+        if (place) {
+          const latitude = place.geometry?.location?.lat();
+          const longitude = place.geometry?.location?.lng();
+          setForm((previous) => ({
+            ...previous,
+            latitude: latitude !== undefined ? String(latitude) : previous.latitude,
+            longitude: longitude !== undefined ? String(longitude) : previous.longitude,
+            placeId: place.place_id || predictions[0].place_id,
+            formattedAddress: place.formatted_address || previous.formattedAddress,
+          }));
+        }
       }
+    } catch (error) {
+      console.error('City geocode error:', error);
     }
   };
 
@@ -2330,39 +2687,7 @@ const AddPropertyForm: React.FC<Props> = ({
       ...previous,
       areaId,
       area: localityName,
-      landmark: '',
       society: '',
-      latitude: latitude !== undefined ? String(latitude) : previous.latitude,
-      longitude: longitude !== undefined ? String(longitude) : previous.longitude,
-      placeId: place.place_id || prediction.place_id,
-      formattedAddress: place.formatted_address || previous.formattedAddress,
-    }));
-  };
-
-  /* =======================================================
-     SUB LOCALITY
-  ======================================================= */
-
-  const selectSubLocality = async (prediction: GooglePlacePrediction) => {
-    const place = await getPlaceDetails(prediction.place_id);
-    if (!place) return;
-
-    const subLocality =
-      getAddressComponent(place, [
-        'sublocality',
-        'sublocality_level_1',
-        'sublocality_level_2',
-        'neighborhood',
-      ]) ||
-      prediction.structured_formatting?.main_text ||
-      '';
-
-    const latitude = place.geometry?.location?.lat();
-    const longitude = place.geometry?.location?.lng();
-
-    setForm((previous) => ({
-      ...previous,
-      landmark: subLocality,
       latitude: latitude !== undefined ? String(latitude) : previous.latitude,
       longitude: longitude !== undefined ? String(longitude) : previous.longitude,
       placeId: place.place_id || prediction.place_id,
@@ -2443,12 +2768,18 @@ const AddPropertyForm: React.FC<Props> = ({
 
   const validate = (currentStep: number): string[] => {
     const errors: string[] = [];
+    const neg = (value: string): boolean => value !== '' && Number(value) < 0;
 
     if (currentStep === 0) {
-      if (!form.lookingTo) errors.push('Please select whether you want to Sale, rent, or list a PG');
+      if (!form.lookingTo) errors.push('Please select Sale or Rent / Lease');
       if (!c.isPG && !form.propertyType) errors.push('Property category is required');
       if (!c.isPG && !form.residentialType) errors.push('Property type is required');
-      if (!form.contactNumber.trim()) errors.push('Contact details are required');
+
+      if (!mobileDigits(form.contactNumber)) errors.push('Mobile number is required');
+      else if (!isValidMobile(form.contactNumber)) errors.push('Mobile number must be exactly 10 digits');
+
+      if (!form.contactEmail.trim()) errors.push('Email address is required');
+      else if (!isValidEmail(form.contactEmail)) errors.push('Please enter a valid email address');
     }
 
     if (currentStep === 1) {
@@ -2458,7 +2789,7 @@ const AddPropertyForm: React.FC<Props> = ({
       if (!form.city.trim()) {
         errors.push('City is required');
       } else if (!form.cityId) {
-        errors.push('City must match the selected state — pick it from the suggestions');
+        errors.push('Please choose a city from the list');
       }
 
       if (!form.area.trim()) errors.push('Locality is required');
@@ -2467,15 +2798,39 @@ const AddPropertyForm: React.FC<Props> = ({
         errors.push('Select your location from the Google suggestions so the map position can be saved');
       }
 
-      if (c.isPlot && !form.plotArea) errors.push('Plot area is required');
+      if (c.isPlot && !(Number(form.plotArea) > 0)) errors.push('Plot area is required');
 
-      if (c.hasBuilding && !form.carpetArea && !form.builtUpArea && !form.superBuiltUpArea) {
+      if (
+        c.hasBuilding &&
+        !(Number(form.carpetArea) > 0 || Number(form.builtUpArea) > 0 || Number(form.superBuiltUpArea) > 0)
+      ) {
         errors.push('At least one area (carpet / built-up / super built-up) is required');
       }
 
-      // Price lives on this step, so it is validated here.
-      if (!form.price.trim()) {
+      if (priceInRupees(form) <= 0) {
         errors.push(c.isSale ? 'Expected price is required' : 'Expected rent is required');
+      }
+
+      if (neg(form.brokerage)) errors.push('Brokerage cannot be a negative amount');
+      if (form.brokerageUnit === 'Percent of transaction' && Number(form.brokerage) > 100) {
+        errors.push('Brokerage percentage must be between 0 and 100');
+      }
+      if (neg(form.warehouseCapacity)) errors.push('Storage capacity cannot be negative');
+      if (neg(form.loadingDocks)) errors.push('Loading dock count cannot be negative');
+      if (neg(form.hotelRooms)) errors.push('Room count cannot be negative');
+      if (neg(form.powerLoad)) errors.push('Power load cannot be negative');
+      if (neg(form.plotRoadWidth)) errors.push('Road width cannot be negative');
+      if (Number(form.plotRoadWidth) > MAX_ROAD_WIDTH) {
+        errors.push(`Road width cannot be more than ${MAX_ROAD_WIDTH}`);
+      }
+
+      if (c.isSale && form.preLeased === 'Yes') {
+        if (!(Number(form.currentRent) > 0)) errors.push('Please enter the current monthly rent');
+        if (!(Number(form.leaseTenure) > 0)) errors.push('Please enter the lease tenure in years');
+      }
+
+      if (form.expectedReturns && (Number(form.expectedReturns) < 0 || Number(form.expectedReturns) > 100)) {
+        errors.push('Expected annual returns should be between 0% and 100%');
       }
     }
 
@@ -2486,6 +2841,13 @@ const AddPropertyForm: React.FC<Props> = ({
 
       if (form.videoUrl.trim() && !/^https?:\/\//i.test(form.videoUrl.trim())) {
         errors.push('Video link must start with http:// or https://');
+      }
+    }
+
+    if (currentStep === 3) {
+      if (neg(form.roadWidth)) errors.push('Width of facing road cannot be negative');
+      if (Number(form.roadWidth) > MAX_ROAD_WIDTH) {
+        errors.push(`Width of facing road cannot be more than ${MAX_ROAD_WIDTH}`);
       }
     }
 
@@ -2565,11 +2927,13 @@ const AddPropertyForm: React.FC<Props> = ({
 
       const propertyFor = fc.isSale ? 'Sale' : 'Rent';
 
-      const place = [f.society, f.landmark, f.area, f.city].filter(Boolean).join(', ');
+      const place = [f.society, f.area, f.city].filter(Boolean).join(', ');
 
-      const title = fc.isPG
-        ? `PG in ${place}`
-        : `${f.residentialType} for ${propertyFor} in ${place}`;
+      const title =
+        f.listingTitle.trim() ||
+        (fc.isPG
+          ? `PG in ${place}`
+          : `${f.residentialType} for ${propertyFor} in ${place}`);
 
       const squareFt = f.plotArea || f.carpetArea || f.builtUpArea || f.superBuiltUpArea;
 
@@ -2577,9 +2941,11 @@ const AddPropertyForm: React.FC<Props> = ({
         propertyFor,
         title,
         squareFt,
+        // Always saved as full rupees.
+        price: String(priceInRupees(f)),
         propertyLocation: f.country.toLowerCase() === 'india' ? 'National' : 'International',
         priceFor: propertyFor === 'Sale' ? 'Total' : 'Monthly',
-        address: [f.society, f.landmark, f.area, f.city, f.state, f.country]
+        address: [f.society, f.area, f.city, f.state, f.country]
           .filter(Boolean)
           .join(', '),
         googleLocation: f.formattedAddress,
@@ -2602,7 +2968,7 @@ const AddPropertyForm: React.FC<Props> = ({
       // The API requires areaId as a non-empty field. When Google returns a
       // locality absent from the master area list, pass its name; the API's
       // integer conversion stores area as null while address keeps it.
-      payload.append('areaId', f.areaId || f.area || f.landmark || '');
+      payload.append('areaId', f.areaId || f.area || '');
 
       /* ---------- form values ---------- */
 
@@ -2677,7 +3043,7 @@ const AddPropertyForm: React.FC<Props> = ({
       window.dispatchEvent(new Event(isEdit ? 'property:changed' : 'property:created'));
 
       if (!isEdit) {
-        setForm({ ...initial, contactNumber: getSavedContact() });
+        setForm({ ...initial, ...savedContactFields() });
         setImages([]);
         setStates([]);
         setCities([]);
@@ -2685,6 +3051,8 @@ const AddPropertyForm: React.FC<Props> = ({
         setStep(0);
         setShowMoreFeatures(false);
         setShowMoreAmenities(false);
+        // Keep India pre-selected for the next property.
+        applyDefaultCountry(countries);
       }
 
       onSuccess?.();
@@ -2731,8 +3099,8 @@ const AddPropertyForm: React.FC<Props> = ({
   const isLast = step === TOTAL_STEPS - 1;
 
   const areaVal = Number(form.plotArea || form.carpetArea || form.builtUpArea || form.superBuiltUpArea);
-  const priceNum = Number(form.price);
-  const perUnit = c.isSale && areaVal > 0 && priceNum > 0 ? Math.round(priceNum / areaVal) : 0;
+  const priceRupees = priceInRupees(form);
+  const perUnit = c.isSale && areaVal > 0 && priceRupees > 0 ? Math.round(priceRupees / areaVal) : 0;
 
   const showOpenSides =
     c.isPlot || c.isCommercial || HOUSE_TYPES.includes(form.residentialType);
@@ -2799,6 +3167,7 @@ const AddPropertyForm: React.FC<Props> = ({
                         ...previous,
                         propertyType: value,
                         residentialType: '',
+                        locatedInside: '',
                       }))
                     }
                   />
@@ -2815,10 +3184,33 @@ const AddPropertyForm: React.FC<Props> = ({
             )}
 
             <Section title="Contact details" required>
+              <H4 required>Mobile number</H4>
+              <div className="apf-prefix">
+                <span>+91</span>
+                <Input
+                  type="tel"
+                  maxLength={10}
+                  placeholder="10-digit mobile number"
+                  value={mobileDigits(form.contactNumber)}
+                  onChange={(v) =>
+                    set('contactNumber', toStoredMobile(v.replace(/\D/g, '').slice(0, 10)))
+                  }
+                />
+              </div>
+
+              <H4 required>Email address</H4>
               <Input
-                placeholder="Phone number / Username / Email"
-                value={form.contactNumber}
-                onChange={(v) => set('contactNumber', v)}
+                type="email"
+                placeholder="Email address"
+                value={form.contactEmail}
+                onChange={(v) => set('contactEmail', v)}
+              />
+
+              <H4>Listing title (Optional)</H4>
+              <Input
+                placeholder="Example: Spacious 3 BHK apartment in Gomti Nagar"
+                value={form.listingTitle}
+                onChange={(v) => set('listingTitle', v)}
               />
             </Section>
           </>
@@ -2832,71 +3224,48 @@ const AddPropertyForm: React.FC<Props> = ({
               sub="Select locations from the suggestions so we can save the exact map position."
               required
             >
-              {/* COUNTRY */}
-              <label className="apf-location-label">
-                Country
-                <Req />
-              </label>
-              <select
-                className="apf-input apf-select"
+              {/* COUNTRY (India is selected by default) */}
+              <SearchableSelect
+                label="Country"
+                required
+                placeholder="Select country"
+                searchPlaceholder="Search country…"
                 value={form.countryId}
-                onChange={(event) => onCountry(event.target.value)}
-              >
-                <option value="">Select country</option>
-                {countries.map((item) => (
-                  <option key={item.id} value={item.id}>{item.name}</option>
-                ))}
-              </select>
+                options={countries}
+                onChange={onCountry}
+              />
 
               {/* STATE */}
-              <label className="apf-location-label">
-                State
-                <Req />
-              </label>
-              <select
-                className="apf-input apf-select"
+              <SearchableSelect
+                label="State"
+                required
+                placeholder={form.countryId ? 'Select state' : 'Select country first'}
+                searchPlaceholder="Search state…"
                 value={form.stateId}
+                options={states}
                 disabled={!form.countryId}
-                onChange={(event) => onState(event.target.value)}
-              >
-                <option value="">Select state</option>
-                {states.map((item) => (
-                  <option key={item.id} value={item.id}>{item.name}</option>
-                ))}
-              </select>
+                onChange={onState}
+              />
 
-              {/* CITY */}
-              <LocationAutocomplete
+              {/* CITY (searchable list, same as the website) */}
+              <SearchableSelect
                 label="City"
                 required
-                placeholder="Enter city"
-                type="city"
-                value={form.city}
+                placeholder={form.stateId ? 'Select city' : 'Select state first'}
+                searchPlaceholder="Search city…"
+                value={form.cityId}
+                options={cities}
                 disabled={!form.stateId}
-                onInput={(value) =>
-                  setForm((previous) => ({
-                    ...previous,
-                    city: value,
-                    cityId: '',
-                    area: '',
-                    areaId: '',
-                    landmark: '',
-                    society: '',
-                    latitude: '',
-                    longitude: '',
-                    placeId: '',
-                    formattedAddress: '',
-                  }))
-                }
-                onSelect={selectCity}
+                onChange={selectCityFromList}
               />
 
               {/* LOCALITY */}
               <LocationAutocomplete
                 label="Locality"
                 required
-                placeholder="Enter locality / area"
+                placeholder={form.city ? `e.g. Gomti Nagar, ${form.city}` : 'Enter locality / area'}
                 type="locality"
+                context={form.city}
                 value={form.area}
                 disabled={!form.city}
                 onInput={(value) =>
@@ -2904,7 +3273,6 @@ const AddPropertyForm: React.FC<Props> = ({
                     ...previous,
                     area: value,
                     areaId: '',
-                    landmark: '',
                     society: '',
                     latitude: '',
                     longitude: '',
@@ -2915,32 +3283,13 @@ const AddPropertyForm: React.FC<Props> = ({
                 onSelect={selectLocality}
               />
 
-              {/* SUB LOCALITY */}
-              <LocationAutocomplete
-                label="Sub Locality"
-                placeholder="Enter sub locality / neighbourhood"
-                type="sublocality"
-                value={form.landmark}
-                disabled={!form.area}
-                onInput={(value) =>
-                  setForm((previous) => ({
-                    ...previous,
-                    landmark: value,
-                    latitude: '',
-                    longitude: '',
-                    placeId: '',
-                    formattedAddress: '',
-                  }))
-                }
-                onSelect={selectSubLocality}
-              />
-
               {/* SOCIETY */}
               {!c.isPlot && (
                 <LocationAutocomplete
                   label={c.isPG ? 'PG / Building Name' : 'Apartment / Society / Project'}
                   placeholder={c.isPG ? 'Search PG / building' : 'Search apartment / society / project'}
                   type="society"
+                  context={[form.area, form.city].filter(Boolean).join(', ')}
                   value={form.society}
                   disabled={!form.area}
                   onInput={(value) =>
@@ -2955,6 +3304,22 @@ const AddPropertyForm: React.FC<Props> = ({
                   }
                   onSelect={selectSociety}
                 />
+              )}
+
+              {/* TOWER / UNIT */}
+              {!c.isPlot && (
+                <div className="apf-unit-row">
+                  <Input
+                    placeholder="Tower / Block (Optional)"
+                    value={form.towerBlock}
+                    onChange={(v) => set('towerBlock', v)}
+                  />
+                  <Input
+                    placeholder="Unit / Door number (Optional)"
+                    value={form.unitNumber}
+                    onChange={(v) => set('unitNumber', v)}
+                  />
+                </div>
               )}
 
               {/* Selected address and latitude / longitude are kept in state
@@ -3018,6 +3383,20 @@ const AddPropertyForm: React.FC<Props> = ({
                   value={form.balconies}
                   onChange={(value) => set('balconies', value)}
                 />
+
+                <H4>Living rooms</H4>
+                <Chips
+                  options={ROOM_COUNTS}
+                  value={form.livingRooms}
+                  onChange={(value) => pick('livingRooms', value)}
+                />
+
+                <H4>Kitchens</H4>
+                <Chips
+                  options={ROOM_COUNTS}
+                  value={form.kitchens}
+                  onChange={(value) => pick('kitchens', value)}
+                />
               </Section>
             )}
 
@@ -3070,6 +3449,60 @@ const AddPropertyForm: React.FC<Props> = ({
                     </div>
                   </>
                 )}
+
+                {c.isWarehouse && (
+                  <div className="apf-unit-row">
+                    <Input
+                      type="number"
+                      min="0"
+                      placeholder="Storage capacity (Optional)"
+                      value={form.warehouseCapacity}
+                      onChange={(v) => set('warehouseCapacity', v)}
+                    />
+                    <Input
+                      type="number"
+                      min="0"
+                      placeholder="Loading docks (Optional)"
+                      value={form.loadingDocks}
+                      onChange={(v) => set('loadingDocks', v)}
+                    />
+                  </div>
+                )}
+
+                <H4>Power load (Optional)</H4>
+                <div className="apf-unit-row">
+                  <Input
+                    type="number"
+                    min="0"
+                    placeholder="Power load"
+                    value={form.powerLoad}
+                    onChange={(v) => set('powerLoad', v)}
+                  />
+                  <Dropdown
+                    placeholder="Unit"
+                    options={['kW', 'kVA']}
+                    value={form.powerLoadUnit}
+                    onChange={(v) => set('powerLoadUnit', v)}
+                  />
+                </div>
+
+                {c.isHospitality && (
+                  <div className="apf-unit-row">
+                    <Input
+                      type="number"
+                      min="0"
+                      placeholder="Number of rooms (Optional)"
+                      value={form.hotelRooms}
+                      onChange={(v) => set('hotelRooms', v)}
+                    />
+                    <Dropdown
+                      placeholder="Property category"
+                      options={HOTEL_CATEGORIES}
+                      value={form.hotelCategory}
+                      onChange={(v) => set('hotelCategory', v)}
+                    />
+                  </div>
+                )}
               </Section>
             )}
 
@@ -3095,6 +3528,47 @@ const AddPropertyForm: React.FC<Props> = ({
 
                 <H4>Construction done</H4>
                 <Chips options={YES_NO} value={form.constructionDone} onChange={(value) => pick('constructionDone', value)} />
+
+                <H4>Intended land use (Optional)</H4>
+                <Dropdown
+                  placeholder="Select use"
+                  options={PLOT_PURPOSES}
+                  value={form.plotPurpose}
+                  onChange={(v) => set('plotPurpose', v)}
+                />
+
+                <H4>Approval status (Optional)</H4>
+                <Dropdown
+                  placeholder="Select status"
+                  options={PLOT_APPROVALS}
+                  value={form.plotApprovalStatus}
+                  onChange={(v) => set('plotApprovalStatus', v)}
+                />
+
+                <H4>Road access (Optional)</H4>
+                <Dropdown
+                  placeholder="Select access"
+                  options={PLOT_ACCESS}
+                  value={form.plotAccess}
+                  onChange={(v) => set('plotAccess', v)}
+                />
+
+                <H4>Road width (Optional)</H4>
+                <div className="apf-unit-row">
+                  <Input
+                    type="number"
+                    min="0"
+                    max={String(MAX_ROAD_WIDTH)}
+                    placeholder={`Road width (max ${MAX_ROAD_WIDTH})`}
+                    value={form.plotRoadWidth}
+                    onChange={(v) => set('plotRoadWidth', clampMax(v, MAX_ROAD_WIDTH))}
+                  />
+                  <Dropdown
+                    options={['Feet', 'Meter']}
+                    value={form.plotRoadWidthUnit || 'Feet'}
+                    onChange={(v) => set('plotRoadWidthUnit', v)}
+                  />
+                </div>
               </Section>
             )}
 
@@ -3126,7 +3600,7 @@ const AddPropertyForm: React.FC<Props> = ({
 
             {/* FLOOR */}
             {c.hasBuilding && (
-              <Section title="Floor Details">
+              <Section title="Floor Details" optional>
                 <Input type="number" min="0" placeholder="Total floors" value={form.totalFloors} onChange={(v) => set('totalFloors', v)} />
 
                 <Dropdown
@@ -3175,24 +3649,51 @@ const AddPropertyForm: React.FC<Props> = ({
               </Section>
             )}
 
+            {/* SHOP FACADE */}
+            {c.isRetail && (
+              <Section title="Shop facade size" optional sub="Shop - front related details">
+                <div className="apf-unit-row">
+                  <Input
+                    type="number"
+                    placeholder="Entrance width"
+                    value={form.entranceWidth}
+                    onChange={(v) => set('entranceWidth', v)}
+                  />
+                  <Dropdown
+                    options={['ft.', 'm.']}
+                    value={form.entranceWidthUnit || 'ft.'}
+                    onChange={(v) => set('entranceWidthUnit', v)}
+                  />
+                </div>
+                <div className="apf-unit-row">
+                  <Input
+                    type="number"
+                    placeholder="Ceiling height"
+                    value={form.ceilingHeight}
+                    onChange={(v) => set('ceilingHeight', v)}
+                  />
+                  <Dropdown
+                    options={['ft.', 'm.']}
+                    value={form.ceilingHeightUnit || 'ft.'}
+                    onChange={(v) => set('ceilingHeightUnit', v)}
+                  />
+                </div>
+              </Section>
+            )}
+
             {/* PRICE */}
             <Section title={c.isSale ? 'Price Details' : 'Rent Details'} required>
-              <div className="apf-prefix">
-                <span>₹</span>
-                <Input
-                  type="number"
-                  min="0"
-                  placeholder={
-                    c.isSale
-                      ? 'Expected Price'
-                      : c.isPG
-                        ? 'Rent per bed / month'
-                        : 'Expected Rent / month'
-                  }
-                  value={form.price}
-                  onChange={(v) => set('price', v)}
-                />
-              </div>
+              <Money
+                placeholder={
+                  c.isSale
+                    ? 'Expected Price'
+                    : c.isPG
+                      ? 'Rent per bed / month'
+                      : 'Expected Rent / month'
+                }
+                value={form.price}
+                onChange={(v) => set('price', v)}
+              />
 
               {perUnit > 0 && (
                 <p className="apf-note">
@@ -3225,15 +3726,27 @@ const AddPropertyForm: React.FC<Props> = ({
               {c.hasBuilding && (
                 <>
                   <H4>Maintenance charges</H4>
-                  <div className="apf-prefix">
-                    <span>₹</span>
-                    <Input type="number" placeholder="Maintenance amount" value={form.maintenanceCharge} onChange={(v) => set('maintenanceCharge', v)} />
-                  </div>
+                  <Money
+                    placeholder="Maintenance amount"
+                    value={form.maintenanceCharge}
+                    onChange={(v) => set('maintenanceCharge', v)}
+                  />
 
                   <Chips
                     options={MAINT_PERIOD}
                     value={form.maintenancePeriod}
                     onChange={(value) => pick('maintenancePeriod', value)}
+                  />
+                </>
+              )}
+
+              {c.isSale && (
+                <>
+                  <H4>Booking amount (Optional)</H4>
+                  <Money
+                    placeholder="Booking amount"
+                    value={form.bookingAmount}
+                    onChange={(v) => set('bookingAmount', v)}
                   />
                 </>
               )}
@@ -3248,20 +3761,101 @@ const AddPropertyForm: React.FC<Props> = ({
                   />
 
                   {form.securityDepositType && form.securityDepositType !== 'None' && (
-                    <Input
-                      type="number"
-                      placeholder={
-                        form.securityDepositType === 'Multiple of rent'
-                          ? "Number of months' rent"
-                          : 'Deposit amount'
-                      }
-                      value={form.securityDeposit}
-                      onChange={(v) => set('securityDeposit', v)}
-                    />
+                    form.securityDepositType === 'Fixed' ? (
+                      <Money
+                        placeholder="Deposit amount"
+                        value={form.securityDeposit}
+                        onChange={(v) => set('securityDeposit', v)}
+                      />
+                    ) : (
+                      <Input
+                        type="number"
+                        placeholder="Number of months' rent"
+                        value={form.securityDeposit}
+                        onChange={(v) => set('securityDeposit', v)}
+                      />
+                    )
                   )}
                 </>
               )}
+
+              <H4>Brokerage / transaction charges (Optional)</H4>
+              <div className="apf-unit-row">
+                <Money
+                  placeholder="Brokerage amount or percentage"
+                  value={form.brokerage}
+                  onChange={(v) => set('brokerage', v)}
+                  showWords={form.brokerageUnit !== 'Percent of transaction'}
+                />
+                <Dropdown
+                  placeholder="Charge type"
+                  options={BROKERAGE_UNITS}
+                  value={form.brokerageUnit}
+                  onChange={(v) => set('brokerageUnit', v)}
+                />
+              </div>
             </Section>
+
+            {/* PRE-LEASED + RETURNS (sale + building only) */}
+            {c.isSale && c.hasBuilding && (
+              <>
+                <Section
+                  title="Is it Pre-leased / Pre-Rented?"
+                  optional
+                  sub="For properties that are already rented out."
+                >
+                  <Chips
+                    options={YES_NO}
+                    value={form.preLeased}
+                    onChange={(value) => pick('preLeased', value)}
+                  />
+
+                  {form.preLeased === 'Yes' && (
+                    <>
+                      <H4 required>Current rent per month</H4>
+                      <Money value={form.currentRent} onChange={(v) => set('currentRent', v)} />
+
+                      <H4 required>Lease tenure in years</H4>
+                      <Input
+                        type="number"
+                        min="1"
+                        value={form.leaseTenure}
+                        onChange={(v) => set('leaseTenure', v)}
+                      />
+
+                      <H4>Annual rent increase in % (Optional)</H4>
+                      <Input
+                        type="number"
+                        value={form.annualRentIncrease}
+                        onChange={(v) => set('annualRentIncrease', v)}
+                      />
+
+                      <H4>Leased to - Business Type (Optional)</H4>
+                      <Input value={form.leasedToType} onChange={(v) => set('leasedToType', v)} />
+                    </>
+                  )}
+                </Section>
+
+                <Section
+                  title="Expected Annual Returns"
+                  optional
+                  sub="Based on cost of the property & current monthly rent."
+                >
+                  <Input
+                    type="number"
+                    min="0"
+                    placeholder="Expected annual returns in %"
+                    value={form.expectedReturns}
+                    onChange={(v) => set('expectedReturns', v)}
+                  />
+                  <Check
+                    label="Hide expected returns"
+                    checked={form.hideReturns}
+                    onChange={(value) => set('hideReturns', value)}
+                  />
+                </Section>
+              </>
+            )}
 
             {c.isRent && (
               <Section title="Preferred Tenants" optional>
@@ -3272,6 +3866,17 @@ const AddPropertyForm: React.FC<Props> = ({
             {!c.isSale && (
               <Section title="Available From" optional>
                 <Input type="date" min={today} value={form.availableFrom} onChange={(v) => set('availableFrom', v)} />
+
+                {!c.isPG && (
+                  <>
+                    <H4>Move-in preference</H4>
+                    <Chips
+                      options={MOVE_IN_OPTIONS}
+                      value={form.moveInPreference}
+                      onChange={(value) => pick('moveInPreference', value)}
+                    />
+                  </>
+                )}
               </Section>
             )}
           </>
@@ -3281,7 +3886,7 @@ const AddPropertyForm: React.FC<Props> = ({
         {step === 2 && (
           <>
             {c.hasRooms && (
-              <Section title="Room & Furnishing">
+              <Section title="Room & Furnishing" optional>
                 <H4>Other rooms</H4>
                 <Chips plus options={OTHER_ROOMS} value={form.otherRooms} onChange={(value) => toggle('otherRooms', value)} />
 
@@ -3307,7 +3912,11 @@ const AddPropertyForm: React.FC<Props> = ({
               </Section>
             )}
 
-            <Section title="Property Description" sub="Write your own, or auto-fill from the details you entered.">
+            <Section
+              title="Property Description"
+              optional
+              sub={`Write your own, or auto-fill from the details you entered (minimum ${MIN_DESC} characters if added).`}
+            >
               <button type="button" className="apf-autofill" onClick={autoFillDescription}>
                 <IonIcon icon={sparklesOutline} />
                 Auto-fill description
@@ -3324,12 +3933,25 @@ const AddPropertyForm: React.FC<Props> = ({
               <div className="apf-count">{form.description.length}/5000</div>
             </Section>
 
-            <Section title="Property Video" optional>
-              <Input type="url" placeholder="YouTube / video URL" value={form.videoUrl} onChange={(v) => set('videoUrl', v)} />
+            <Section title="Additional terms / conditions" optional>
+              <textarea
+                className="apf-input apf-textarea"
+                rows={4}
+                maxLength={3000}
+                placeholder="Add important terms such as maintenance, usage restrictions, or included services."
+                value={form.termsAndConditions}
+                onChange={(event) => set('termsAndConditions', event.target.value)}
+              />
+              <div className="apf-count">{form.termsAndConditions.length}/3000</div>
             </Section>
 
-            <Section title="Contact Email" optional>
-              <Input type="email" placeholder="Email" value={form.contactEmail} onChange={(v) => set('contactEmail', v)} />
+            <Section title="Property Video" optional>
+              <Input
+                type="url"
+                placeholder="Paste YouTube / video link of your property"
+                value={form.videoUrl}
+                onChange={(v) => set('videoUrl', v)}
+              />
             </Section>
           </>
         )}
@@ -3389,14 +4011,8 @@ const AddPropertyForm: React.FC<Props> = ({
               </label>
             </Section>
 
-            {!c.isPG && (
-              <Section title="Ownership">
-                <Chips options={OWNERSHIP} value={form.ownership} onChange={(value) => pick('ownership', value)} />
-              </Section>
-            )}
-
             {!c.isPlot && (
-              <Section title="Amenities">
+              <Section title="Amenities" optional>
                 <Chips
                   plus
                   options={showMoreAmenities ? AMENITIES : AMENITIES.slice(0, 8)}
@@ -3413,7 +4029,7 @@ const AddPropertyForm: React.FC<Props> = ({
             )}
 
             {c.hasBuilding && (
-              <Section title="Property Features">
+              <Section title="Property Features" optional>
                 <Chips
                   plus
                   options={showMoreFeatures ? FEATURES : FEATURES.slice(0, 6)}
@@ -3426,6 +4042,12 @@ const AddPropertyForm: React.FC<Props> = ({
                     + More property features
                   </button>
                 )}
+              </Section>
+            )}
+
+            {c.isCommercial && (
+              <Section title="Fire safety measures include" optional>
+                <Chips plus options={FIRE_SAFETY} value={form.fireSafety} onChange={(value) => toggle('fireSafety', value)} />
               </Section>
             )}
 
@@ -3458,16 +4080,43 @@ const AddPropertyForm: React.FC<Props> = ({
             )}
 
             {!c.isPG && (
-              <Section title="Road Width" optional>
+              <Section title="Width of facing road" optional sub={`Maximum ${MAX_ROAD_WIDTH}`}>
                 <div className="apf-unit-row">
-                  <Input type="number" min="0" placeholder="Road width" value={form.roadWidth} onChange={(v) => set('roadWidth', v)} />
+                  <Input
+                    type="number"
+                    min="0"
+                    max={String(MAX_ROAD_WIDTH)}
+                    placeholder={`Enter the width (max ${MAX_ROAD_WIDTH})`}
+                    value={form.roadWidth}
+                    onChange={onRoadWidth}
+                  />
                   <Dropdown options={['Feet', 'Meter']} value={form.roadWidthUnit} onChange={(v) => set('roadWidthUnit', v)} />
                 </div>
               </Section>
             )}
 
-            <Section title="Nearby Locations" optional>
+            {c.isCommercial && (
+              <>
+                <Section title="Located Near" optional>
+                  <Chips plus options={LOCATED_NEAR} value={form.locatedNear} onChange={(value) => toggle('locatedNear', value)} />
+                </Section>
+
+                <Section title="Suitable for business types" optional>
+                  <Dropdown
+                    placeholder="Select business type"
+                    options={BUSINESS_TYPES}
+                    value={form.suitableBusinessType}
+                    onChange={(v) => set('suitableBusinessType', v)}
+                  />
+                </Section>
+              </>
+            )}
+
+            <Section title="Nearby Locations" optional sub="Highlight the nearby landmarks">
               <Chips plus options={LOCATION_ADV} value={form.locationAdvantages} onChange={(value) => toggle('locationAdvantages', value)} />
+              <p className="apf-note">
+                *Please provide correct information, otherwise your listing might get blocked.
+              </p>
             </Section>
           </>
         )}

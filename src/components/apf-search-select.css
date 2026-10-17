@@ -1,0 +1,111 @@
+/* Searchable dropdown used for Country and State */
+
+.apf-ss {
+  position: relative;
+}
+
+.apf-ss-trigger {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  text-align: left;
+  cursor: pointer;
+  background-image: none;
+}
+
+.apf-ss-trigger::after {
+  content: '';
+  flex-shrink: 0;
+  width: 7px;
+  height: 7px;
+  margin-left: 10px;
+  border-right: 2px solid currentColor;
+  border-bottom: 2px solid currentColor;
+  transform: rotate(45deg) translateY(-2px);
+  opacity: 0.55;
+}
+
+.apf-ss-trigger:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.apf-ss-placeholder {
+  opacity: 0.55;
+}
+
+.apf-ss-panel {
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: calc(100% + 4px);
+  z-index: 30;
+  display: flex;
+  /* Search sits at the bottom of the list.
+     Change to `column-reverse` to put it at the top instead. */
+  flex-direction: column;
+  overflow: hidden;
+  background: var(--apf-surface, #fff);
+  border: 1px solid #d6dbe3;
+  border-radius: 10px;
+  box-shadow: 0 8px 24px rgba(15, 23, 42, 0.14);
+}
+
+.apf-ss-list {
+  max-height: 220px;
+  margin: 0;
+  padding: 4px;
+  list-style: none;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+.apf-ss-option {
+  display: block;
+  width: 100%;
+  padding: 10px 12px;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.apf-ss-option:hover,
+.apf-ss-option:focus-visible {
+  background: rgba(24, 95, 165, 0.08);
+  outline: none;
+}
+
+.apf-ss-option--on {
+  background: rgba(24, 95, 165, 0.14);
+  color: #185fa5;
+  font-weight: 600;
+}
+
+.apf-ss-empty {
+  padding: 12px;
+  text-align: center;
+  opacity: 0.6;
+}
+
+.apf-ss-search {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  border-top: 1px solid #e5e9f0;
+}
+
+.apf-ss-search input {
+  flex: 1;
+  min-width: 0;
+  border: 0;
+  outline: none;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+}
