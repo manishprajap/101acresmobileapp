@@ -29,12 +29,24 @@ const normalizePhone = (value: string) => {
 };
 
 const validate = (name: string, mobile: string, email: string) => {
-  if (name.trim().length < 2) return 'Please enter your name.';
-  if (!/^[6-9]\d{9}$/.test(normalizePhone(mobile))) return 'Please enter a valid 10-digit mobile number.';
-  if (email.trim() && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim())) return 'Please enter a valid email address.';
+  if (name.trim().length < 2) {
+    return 'Please enter your name.';
+  }
+
+  if (!/^[6-9]\d{9}$/.test(normalizePhone(mobile))) {
+    return 'Please enter a valid 10-digit mobile number.';
+  }
+
+  if (!email.trim()) {
+    return 'Please enter your email address.';
+  }
+
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim())) {
+    return 'Please enter a valid email address.';
+  }
+
   return '';
 };
-
 export const sendLead = async (
   propertyId: string | number,
   type: LeadType,
@@ -139,8 +151,16 @@ const EnquiryModal: React.FC<Props> = ({
               value={form.name} onChange={(e) => set('name', e.target.value)} />
             <input className="enq-input" type="tel" inputMode="numeric" placeholder="Your Mobile Number" maxLength={15}
               value={form.mobile} onChange={(e) => set('mobile', e.target.value)} />
-            <input className="enq-input" type="email" placeholder="Your Email (optional)" maxLength={120}
-              value={form.email} onChange={(e) => set('email', e.target.value)} />
+            <input
+              className="enq-input"
+              type="email"
+              placeholder="Your Email *"
+              maxLength={120}
+              autoComplete="email"
+              required
+              value={form.email}
+              onChange={(e) => set('email', e.target.value)}
+            />
             {type === 'contact_owner' && (
               <textarea className="enq-input enq-textarea" rows={3} maxLength={1000}
                 placeholder="I am interested in this property..."
