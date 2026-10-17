@@ -1,3 +1,4 @@
+// src/pages/PropertyDetail.tsx  (mobile / Ionic app)
 import React, { useEffect, useRef, useState } from 'react';
 import { useParams, useLocation, useHistory } from 'react-router-dom';
 import { IonPage, IonHeader, IonContent, IonFooter, IonIcon, IonSpinner } from '@ionic/react';
@@ -15,7 +16,7 @@ import {
   calendarOutline,
   expandOutline,
   callOutline,
-  logoWhatsapp,
+  chatbubbleEllipsesOutline,
   openOutline,
   shieldCheckmark,
   imagesOutline,
@@ -23,6 +24,7 @@ import {
 } from 'ionicons/icons';
 import './PropertyDetail.css';
 import BottomNav from '../components/BottomNav';
+import EnquiryModal from '../components/EnquiryModal';
 import { apiGet } from '../api';
 
 const IMAGE_BASE = 'https://101acres.com';
@@ -194,7 +196,7 @@ const resolveLocation = async (p: any): Promise<ResolvedLocation> => {
     p.areaName, p.area_name, p.localityName, p.locality_name, p.locality, p.area,
   );
 
-  // Sab names pehle se hain -> koi extra API call nahi
+  // All names already present -> no extra API call
   if (country && state && city && (area || !idOnly(p, ['areaId', 'area_id', 'localityId', 'locality_id'], 'area'))) {
     return { country, state, city, area };
   }
@@ -318,7 +320,7 @@ const loadList = (): Promise<any[]> => {
 
 const pidOf = (p: any) => p?.id ?? p?._id ?? p?.propertyId;
 
-// City ka raw key (ID) — similar properties match karne ke liye
+// Raw city key (ID) used to match similar properties
 const cityKeyOf = (p: any) => String(p?.cityId ?? p?.city_id ?? p?.city ?? '').trim();
 
 // ── Component ──────────────────────────────────────────────
@@ -333,9 +335,12 @@ const PropertyDetail: React.FC = () => {
   const [activeImg, setActiveImg] = useState(0);
   const [saved, setSaved] = useState(false);
   const [expanded, setExpanded] = useState(false);
-  const [showPhone, setShowPhone] = useState(false);
   const [tab, setTab] = useState('overview');
   const [loc, setLoc] = useState<(ResolvedLocation & { pid: string }) | null>(null);
+
+  // Contact Owner / View Number popup
+  const [modalType, setModalType] = useState<'contact_owner' | 'view_number' | null>(null);
+  const [revealedNumber, setRevealedNumber] = useState('');
 
   const contentRef = useRef<HTMLIonContentElement>(null);
   const trackRef = useRef<HTMLDivElement>(null);
@@ -346,7 +351,8 @@ const PropertyDetail: React.FC = () => {
     let cancelled = false;
     setActiveImg(0);
     setExpanded(false);
-    setShowPhone(false);
+    setModalType(null);
+    setRevealedNumber('');
     setTab('overview');
     setLoc(null);
     contentRef.current?.scrollToTop(0);
@@ -374,7 +380,7 @@ const PropertyDetail: React.FC = () => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [id]);
 
-  // Country / State / City / Area NAMES resolve karo (names missing ho toh lookup se)
+  // Resolve Country / State / City / Area NAMES (via lookups if names are missing)
   useEffect(() => {
     if (!raw) return;
     let cancelled = false;
@@ -399,7 +405,7 @@ const PropertyDetail: React.FC = () => {
   };
 
   const handleShare = async () => {
-    const url = window.location.href;
+    const url = `${IMAGE_BASE}/property-detail/${id}`;
     try {
       if (navigator.share) await navigator.share({ title: raw?.title || 'Property', url });
       else await navigator.clipboard.writeText(url);
@@ -440,10 +446,10 @@ const PropertyDetail: React.FC = () => {
   const where = [p.society, p.area, p.city, p.state, p.country].filter(Boolean).join(', ');
   const perSqft = p.sqft > 0 && p.price > 0 ? Math.round(p.price / p.sqft) : 0;
   const rentUnit = p.priceFor.toLowerCase() === 'yearly' ? 'year' : 'month';
-  const waPhone = p.phone.replace(/[^\d]/g, '');
   const ago = postedAgo(p.createdAt);
+  const who = p.ownership || 'Owner';
 
-  // Similar: same city (raw city ID se compare, name se nahi)
+  // Similar: same city (compared by raw city ID, not by name)
   const myCityKey = cityKeyOf(raw);
   const similar = allList
     .filter((x) => String(pidOf(x)) !== String(p.id))
@@ -608,7 +614,7 @@ const PropertyDetail: React.FC = () => {
           )}
 
           <div className="pdx-posted">
-            <span><IonIcon icon={shieldCheckmark} /> Posted by {p.ownership || 'Owner'}</span>
+            <span><IonIcon icon={shieldCheckmark} /> Posted by {who}</span>
             {ago && <span><IonIcon icon={timeOutline} /> {ago}</span>}
           </div>
         </section>
@@ -693,15 +699,15 @@ const PropertyDetail: React.FC = () => {
 
         {/* 8. Owner */}
         <section className="pdx-card">
-          <h2 className="pdx-h2">Contact owner</h2>
+          <h2 className="pdx-h2">Contact {who.toLowerCase()}</h2>
           <div className="pdx-owner">
-            <span className="pdx-avatar">{(p.owner || 'O').charAt(0).toUpperCase()}</span>
+            <span className="pdx-avatar">{(p.owner || who).charAt(0).toUpperCase()}</span>
             <div className="pdx-owner-info">
-              <b>{p.owner || 'Owner'}</b>
-              <small><IonIcon icon={shieldCheckmark} /> {p.ownership || 'Owner'}</small>
+              <b>{p.owner || who}</b>
+              <small><IonIcon icon={shieldCheckmark} /> {who}</small>
             </div>
-            {p.phone && (
-              <span className="pdx-phone">{showPhone ? p.phone : maskPhone(p.phone)}</span>
+            {(revealedNumber || p.phone) && (
+              <span className="pdx-phone">{revealedNumber || maskPhone(p.phone)}</span>
             )}
           </div>
           <p className="pdx-safe">Never pay any advance before visiting the property in person.</p>
@@ -750,33 +756,34 @@ const PropertyDetail: React.FC = () => {
       {/* Sticky action bar */}
       <IonFooter className="ion-no-border pdx-footer">
         <div className="pdx-actions">
-          {waPhone && (
-            <a
-              className="pdx-btn pdx-btn--line"
-              href={`https://wa.me/${waPhone}`}
-              target="_blank"
-              rel="noopener noreferrer"
-            >
-              <IonIcon icon={logoWhatsapp} /> WhatsApp
+          <button type="button" className="pdx-btn pdx-btn--line" onClick={() => setModalType('contact_owner')}>
+            <IonIcon icon={chatbubbleEllipsesOutline} /> Contact {who}
+          </button>
+
+          {revealedNumber ? (
+            <a className="pdx-btn pdx-btn--solid" href={`tel:${revealedNumber}`}>
+              <IonIcon icon={callOutline} /> Call {revealedNumber}
             </a>
-          )}
-          {p.phone ? (
-            showPhone ? (
-              <a className="pdx-btn pdx-btn--solid" href={`tel:${p.phone}`}>
-                <IonIcon icon={callOutline} /> Call {p.phone}
-              </a>
-            ) : (
-              <button type="button" className="pdx-btn pdx-btn--solid" onClick={() => setShowPhone(true)}>
-                <IonIcon icon={callOutline} /> Get Phone No.
-              </button>
-            )
           ) : (
-            <button type="button" className="pdx-btn pdx-btn--solid" onClick={() => history.push('/contact')}>
-              <IonIcon icon={callOutline} /> Contact Us
+            <button type="button" className="pdx-btn pdx-btn--solid" onClick={() => setModalType('view_number')}>
+              <IonIcon icon={callOutline} /> View Number
             </button>
           )}
         </div>
       </IonFooter>
+
+      {/* Contact Owner / View Number popup */}
+      <EnquiryModal
+        open={!!modalType}
+        type={modalType ?? 'contact_owner'}
+        propertyId={p.id}
+        propertyTitle={p.title}
+        ownership={who}
+        alreadyRevealed={revealedNumber}
+        onClose={() => setModalType(null)}
+        onRevealed={setRevealedNumber}
+      />
+
       <BottomNav active={null} />
     </IonPage>
   );
